@@ -11,7 +11,7 @@ queries <- queries[which(substr(queries, 1, 2)!="--")]
 sapply(queries, function(x) dbGetQuery(con,x))
 
 # pgRouting pgr_createVertices requires 2D geometry for roadlinks
-# OS Open Roads may have imported with Z values
+# OS Open Roads may have been imported with Z values
 
 query <- paste0("select ST_AsText(the_geom) from openroads.roadlinks limit 1;")
 roadlinks_geo_type <- dbGetQuery(con, query)
@@ -21,6 +21,23 @@ if (grepl("LINESTRING Z", roadlinks_geo_type, fixed = TRUE) == TRUE) {
     "
     ALTER TABLE openroads.roadlinks
     ALTER COLUMN the_geom TYPE geometry(LineString)
+    USING ST_Force2D(the_geom);
+    "
+  )
+}
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbGetQuery(con, query)
+
+query <- paste0("select ST_AsText(the_geom) from openroads.roadnodes limit 1;")
+roadnodes_geo_type <- dbGetQuery(con, query)
+
+if (grepl("POINT Z", roadnodes_geo_type, fixed = TRUE) == TRUE) {
+  query <- paste0(
+    "
+    ALTER TABLE openroads.roadnodes
+    ALTER COLUMN the_geom TYPE geometry(Point)
     USING ST_Force2D(the_geom);
     "
   )
