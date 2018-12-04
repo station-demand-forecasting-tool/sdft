@@ -5,7 +5,7 @@
 -- or target real node (i.e either end of an edge) the source or target node pid
 -- is returned (otherwise routing would not work).
 create or replace function
-    vnodes(network_sql text,
+    openroads.create_pgr_vnodes(network_sql text,
     points geometry[], tolerance float default 0.01)
 returns table (id bigint, pid bigint, edge_id bigint,
     fraction float, closest_node bigint, n_geom geometry) as
