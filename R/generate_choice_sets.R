@@ -1,7 +1,7 @@
 # generate choice sets
 
 
-# create virtual nodes table
+# create virtual nodes table for use in pgRouting functions
 # using postcode centroids (from AOI) and all railway stations
 # including proposed station to be modelled <- not implemented yet
 
