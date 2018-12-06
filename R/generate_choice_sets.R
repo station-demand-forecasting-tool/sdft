@@ -6,7 +6,7 @@
 # including proposed station to be modelled <- not implemented yet
 
 # need to check all points have found an edge - nulls are not returned.
-# depends on the search tolerance. Curerntly set at 1km, can probably
+# depends on the search tolerance. Currently set at 1km, can probably
 # exclude any postcode centroids not within 1km of an edge?
 
 query <- paste0(
