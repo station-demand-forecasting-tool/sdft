@@ -35,8 +35,8 @@ from
 		select id, source, target, cost_len as cost, the_geom
 		from openroads.roadlinks',
 		'select pid*-1 as pid, edge_id, fraction from openroads.vnodesneg_roadlinks',
-		- 10028781,
-		- 10014591,
+		-10028781,
+		-10014591,
 		false,
 		start_geom := st_transform ( st_setsrid ( st_point ( - 3.96936, 52.04480 ), 4326 ), 27700 ),
 		end_geom := st_transform ( st_setsrid ( st_point ( - 5.07385, 56.23231 ), 4326 ), 27700 ),
@@ -56,5 +56,5 @@ from
 		from openroads.roadlinks',
 		'select pid*-1 as pid, edge_id, fraction from openroads.vnodesneg_roadlinks where pid < 0',
 		1228827,
-	- 10028781,
+	 -10028781,
 	false)

@@ -23,13 +23,13 @@ service_areas <- c(1000,5000,10000,20000,30000,40000,67000)
 # begin the service area loop i
 for (i in service_areas) {
   # create sa column in table
-  query <-
-    paste0(
-      "alter table data.stations add column if not exists service_area_",
-      i / 1000,
-      "km geometry(Polygon,27700);"
-    )
-  dbGetQuery(con, query)
+  # query <-
+  #   paste0(
+  #     "alter table data.stations add column if not exists service_area_",
+  #     i / 1000,
+  #     "km geometry(Polygon,27700);"
+  #   )
+  # dbGetQuery(con, query)
 
   pb <-
     progress_bar$new(total = total_stations, format = "(:spin) [:bar] :percent")
@@ -54,7 +54,7 @@ for (i in service_areas) {
       select dd.node, coalesce(a.the_geom, b.the_geom) as the_geom
       from
       pgr_withpointsdd($sql$
-      select id, source, target, cost_time as cost
+      select id, source, target, cost_len as cost
       from openroads.roadlinks where the_geom && st_buffer(st_transform(st_setsrid(st_point(",
       stations$location[j] ,
       "), 4326), 27700),",
@@ -119,7 +119,7 @@ for (i in service_areas) {
         select dd.node, coalesce(a.the_geom, b.the_geom) as the_geom
         from
         pgr_withpointsdd($sql$
-        select id, source, target, cost_time as cost
+        select id, source, target, cost_len as cost
         from openroads.roadlinks where the_geom && st_buffer(st_transform(st_setsrid(st_point(",
         stations_null$location[j] ,
         "), 4326), 27700),",

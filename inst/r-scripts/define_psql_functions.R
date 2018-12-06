@@ -35,6 +35,16 @@ query <- paste0(getSQL("inst/sql/function_create_pgr_vnodes.sql"))
 dbGetQuery(con, query)
 
 
+# function to obtain the nearest 10 railway stations to given origin
+# currently uses bbox_pgr_dijkstracost
+# to be amended to use bbox_pgr_withpointscost
+# also need additional parameters
+# select * from sdr_nearest_stations(st_setsrid(st_point(288541,	60740), 27700), 1)
+
+query <- paste0(getSQL("inst/sql/function_sdr_nearest_stations.sql"))
+dbGetQuery(con, query)
+
+
 
 
 
