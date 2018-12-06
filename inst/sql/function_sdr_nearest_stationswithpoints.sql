@@ -3,9 +3,12 @@
 -- work in progress, this is a working function call
 -- note how we only use the relevant part of the virtual nodes table
 -- this considerably imporves performance.
-
+-- must exclude real nodes (positive pid) from the nodes sql.
+-- pids <= -30000000 relate to railway stations.
+-- we only need the pid for the origin from the postcode virtual nodes.
+-- will need a case statement if mode is positive integer don't select it.
 -- needs to be incoporated into sdr_nearest_stationswithpoints function (or additional with and without points)
--- quite slow. Perhaps better just to insert the vnodes that are needed for this query?
+
 with tmp as (select d.*, e.pid from data.stations d
 left join model.centroidnodes e on d.crscode = e.reference)
 Select name, crscode, round(r.agg_cost::numeric, 2) as distance from tmp as d,
