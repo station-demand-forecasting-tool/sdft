@@ -1,8 +1,8 @@
 -- sdr_nearest_stationswithpoints
 
 -- work in progress, this is a working function call
--- not how only use the relevant part of the virtual nodes table
--- this considerablt imporves performance.
+-- note how we only use the relevant part of the virtual nodes table
+-- this considerably imporves performance.
 
 -- needs to be incoporated into sdr_nearest_stationswithpoints function (or additional with and without points)
 -- quite slow. Perhaps better just to insert the vnodes that are needed for this query?
