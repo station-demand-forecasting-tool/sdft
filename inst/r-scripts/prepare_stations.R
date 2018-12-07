@@ -17,19 +17,19 @@ stations <- dbGetQuery(con, query)
 total_stations <- nrow(stations) # set number of records
 
 # service areas required in metres
-service_areas <- c(1000,5000,10000,20000,30000,40000,67000)
+service_areas <- c(1000,5000,10000,20000,30000,40000,60000,80000,105000)
 
 
 # begin the service area loop i
 for (i in service_areas) {
   # create sa column in table
-  # query <-
-  #   paste0(
-  #     "alter table data.stations add column if not exists service_area_",
-  #     i / 1000,
-  #     "km geometry(Polygon,27700);"
-  #   )
-  # dbGetQuery(con, query)
+  query <-
+    paste0(
+      "alter table data.stations add column if not exists service_area_",
+      i / 1000,
+      "km geometry(Polygon,27700);"
+    )
+  dbGetQuery(con, query)
 
   pb <-
     progress_bar$new(total = total_stations, format = "(:spin) [:bar] :percent")
