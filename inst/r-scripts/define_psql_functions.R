@@ -44,6 +44,11 @@ dbGetQuery(con, query)
 query <- paste0(getSQL("inst/sql/function_sdr_nearest_stations.sql"))
 dbGetQuery(con, query)
 
+# function to obtain nearest 10 railways stations to given origin
+# using bbox_pgr_withpointscost
+
+query <- paste0(getSQL("inst/sql/function_sdr_nearest_stationswithpoints.sql"))
+dbGetQuery(con, query)
 
 
 
