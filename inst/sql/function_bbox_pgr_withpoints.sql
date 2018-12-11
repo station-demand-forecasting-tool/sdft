@@ -4,7 +4,8 @@ create or replace function openroads.bbox_pgr_withpoints(
     directed boolean,
 		start_geom geometry, end_geom geometry,
 		tol_dist float8 DEFAULT 100,
-    expand_percent float4 default 0.5)
+		expand_min int8 default 0,
+    expand_pc float4 default 0.5)
     returns table ( seq integer, node bigint,
     edge bigint,
     cost double precision,
@@ -16,7 +17,7 @@ $$
 			-- create a bbox that is expanded x percent
       -- around the bbox of start and end
       var_expand_geom := st_expand(st_makeline(start_geom, end_geom),
-      st_distance(start_geom, end_geom) * expand_percent );
+      greatest(expand_min, st_distance(start_geom, end_geom) * expand_pc ));
       -- only include edges that overlap the expand bounding box
       var_new_sql := 'select * from (' || sql || ') as e
                 where e.the_geom &&  '

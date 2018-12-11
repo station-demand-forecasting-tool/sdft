@@ -3,8 +3,9 @@
 create or replace function openroads.bbox_pgr_dijkstra(
   sql text, start_pt geometry, end_pt geometry,
   directed boolean,
-  tol_dist float8 DEFAULT 100,
-  expand_percent float4 default 0.5)
+  tol_dist float8 default 100,
+  expand_min int8 default 0,
+	expand_pc float4 default 0.5)
   returns table ( seq integer, node bigint,
                 edge bigint,
                 cost double precision,
@@ -24,7 +25,7 @@ var_new_sql := sql;
 -- create a bbox that is expanded x percent
 -- around the bbox of start and end
 var_expand_geom := st_expand(st_makeline(start_pt, end_pt),
-                             st_distance(start_pt, end_pt) * expand_percent );
+                             greatest(expand_min, st_distance(start_pt, end_pt) * expand_pc ));
 -- only include edges that overlap the expand bounding box
 var_new_sql := 'select * from (' || sql || ') as e
                 where e.the_geom &&  '
@@ -34,3 +35,4 @@ from pgr_dijkstra(var_new_sql, var_source_id,
                   var_target_id, directed) as d;
 end;
 $$ language 'plpgsql';
+

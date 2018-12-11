@@ -18,7 +18,8 @@ from
 		st_transform ( st_setsrid ( st_point ( - 2.9348337, 50.724873 ), 4326 ), 27700 ),
 		false,
 		tol_dist := 100,
-	expand_percent := 0.3
+		expand_min := 1000,
+	  expand_pc := 0.3
 	) as r
 
 
@@ -41,7 +42,8 @@ from
 		start_geom := st_transform ( st_setsrid ( st_point ( - 3.96936, 52.04480 ), 4326 ), 27700 ),
 		end_geom := st_transform ( st_setsrid ( st_point ( - 5.07385, 56.23231 ), 4326 ), 27700 ),
 	tol_dist := 100,
-	expand_percent := 0.2)
+	expand_min := 1000,
+	expand_pc := 0.2)
 
 -- example pgr_withpoints
 -- start is a real node, destination is a virtual node.
