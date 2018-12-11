@@ -3,7 +3,6 @@ create or replace function openroads.bbox_pgr_withpoints(
     sql text, node_sql text, start_vn bigint, end_vn bigint,
     directed boolean,
 		start_geom geometry, end_geom geometry,
-		tol_dist float8 DEFAULT 100,
 		expand_min int8 default 0,
     expand_pc float4 default 0.5)
     returns table ( seq integer, node bigint,
