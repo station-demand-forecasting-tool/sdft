@@ -7,7 +7,7 @@
 -- we only need the pid for the origin from the postcode virtual nodes.
 
 create or replace function sdr_nearest_stationswithpoints (
-origin_node int8, origin_geom geometry, expand_pc float4 default 0.5 )
+origin_node int8, origin_geom geometry, expand_min int8 default 0, expand_pc float4 default 0.5 )
 returns table ( name text, crscode text, distance float8 )
 as $body$
 declare
@@ -38,13 +38,13 @@ begin
 			end into sa;
 -- define virtual node sql, restrict to station vnodes (pid <= -30000000) or the origin pid and only ever pids < 0)
 -- have to separate this out to inject the origin node.
-node_sql := format ( 'select pid*-1 as pid, edge_id, frac::double precision as fraction from model.centroidnodes
-  where (pid <= -30000000 or pid = %L) and pid <0', origin_node );
+node_sql := format ( 'select pid*-1 as pid, edge_id, frac::double precision as fraction from model.centroidnodes where (pid <= -30000000 or pid = %s) and pid <0', origin_node );
+raise notice '%', node_sql;
 return query execute format ( '
 			/* cte table with intersected stations for the selected service area with station node pid joined */
-			with tmp as (select d.name, d.crscode, d.%s, d.location_geom, e.pid from data.stations d
+			with tmp as (select d.name, d.crscode, d.%1$s, d.location_geom, e.pid from data.stations d
 			left join model.centroidnodes e on d.crscode = e.reference
-			where $1 && %s)
+			where $1 && %1$s)
 			select name, crscode, r.agg_cost as distance from tmp as d,
 			/* lateral runs the pgr function for each row of d */
 			lateral bbox_pgr_withpointscost(
@@ -56,11 +56,12 @@ return query execute format ( '
 			false,
 			$1,
 			d.location_geom,
-			tol_dist := 1000,
-			expand_percent := $4) r
-			order by distance asc limit 10', sa, sa, sa ) using origin_geom,
+			expand_min := $4,
+			expand_pc := $5) r
+			order by distance asc limit 10', sa) using origin_geom,
 		node_sql,
 		origin_node,
+		expand_min,
 		expand_pc;
 		return;
 end

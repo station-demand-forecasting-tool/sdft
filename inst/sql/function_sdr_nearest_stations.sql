@@ -6,7 +6,7 @@
 -- requires that service areas have been created in the station table
 -- this version is withoutpoints.
 
-create or replace function sdr_nearest_stations(origin geometry, expand_pc float4 default 0.5) returns
+create or replace function sdr_nearest_stations(origin geometry, expand_min int8 default 0, expand_pc float4 default 0.5) returns
 table(name text, crscode text, distance float8)
 as $body$
 DECLARE
@@ -25,7 +25,7 @@ begin
 		when (select count (*) from data.stations where origin && service_area_40km) >= 10 then 'service_area_80km'
 		else 'service_area_105km' end
 	into sa;
-	return query execute format ('select name, crscode, r.agg_cost, 2) as distance from data.stations as d,
+	return query execute format ('select name, crscode, r.agg_cost as distance from data.stations as d,
 	lateral bbox_pgr_dijkstracost(
 		$sql$select id,
 		source,
@@ -37,11 +37,11 @@ begin
 		d.location_geom,
 		false,
 		tol_dist := 1000,
-	expand_percent := $2) r
+		expand_min := $2,
+	expand_pc := $3) r
 	where $1 && %I
-	-- note column sa is inserted at %I
 	order by distance asc limit 10', sa)
-	using origin, expand_pc;
+	using origin, expand_min, expand_pc;
 	return;
 	END
 	$body$ language plpgsql;
