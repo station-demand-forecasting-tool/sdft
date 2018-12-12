@@ -1,7 +1,6 @@
 -- sdr_nearest_stationswithpoints
-
 -- only use the relevant part of the virtual nodes table
--- this considerably imprpves performance.
+-- this considerably improves performance.
 -- must exclude real nodes (positive pid) from the nodes sql.
 -- pids <= -30000000 relate to railway stations.
 -- we only need the pid for the origin from the postcode virtual nodes.
@@ -16,10 +15,8 @@ node_sql character varying;
 -- find the first service area where origin intersects 10 or more stations.
 -- don't do more work then we need.
 begin
-	select
-	case
-		when
-			( select count ( * ) from data.stations where origin_geom && service_area_1km ) >= 10 then
+	select case
+	      when ( select count ( * ) from data.stations where origin_geom && service_area_1km ) >= 10 then
 				'service_area_1km'
 				when ( select count ( * ) from data.stations where origin_geom && service_area_5km ) >= 10 then
 				'service_area_5km'
@@ -34,14 +31,14 @@ begin
 				when ( select count ( * ) from data.stations where origin_geom && service_area_30km ) >= 10 then
 				'service_area_60km'
 				when ( select count ( * ) from data.stations where origin_geom && service_area_40km ) >= 10 then
-				'service_area_80km' else'service_area_105km'
+				'service_area_80km' else 'service_area_105km'
 			end into sa;
 -- define virtual node sql, restrict to station vnodes (pid <= -30000000) or the origin pid and only ever pids < 0)
 -- have to separate this out to inject the origin node.
 node_sql := format ( 'select pid*-1 as pid, edge_id, frac::double precision as fraction from model.centroidnodes where (pid <= -30000000 or pid = %s) and pid <0', origin_node );
 raise notice '%', node_sql;
 return query execute format ( '
-			/* cte table with intersected stations for the selected service area with station node pid joined */
+			/* CTE table with intersected stations for the selected service area with station node pid joined */
 			with tmp as (select d.name, d.crscode, d.%1$s, d.location_geom, e.pid from data.stations d
 			left join model.centroidnodes e on d.crscode = e.reference
 			where $1 && %1$s)
