@@ -25,8 +25,8 @@ begin
 		when (select count (*) from data.stations where origin && service_area_40km) >= 10 then 'service_area_80km'
 		else 'service_area_105km' end
 	into sa;
-	return query execute format ('select name, crscode, r.agg_cost as distance from data.stations as d,
-	lateral bbox_pgr_dijkstracost(
+	return query execute format ('select name, crscode, r.agg_cost as distance from data.stations as d
+	left join lateral bbox_pgr_dijkstracost(
 		$sql$select id,
 		source,
 		target,
@@ -38,7 +38,7 @@ begin
 		false,
 		tol_dist := 1000,
 		expand_min := $2,
-	expand_pc := $3) r
+	expand_pc := $3) r on true
 	where $1 && %I
 	order by distance asc limit 10', sa)
 	using origin, expand_min, expand_pc;

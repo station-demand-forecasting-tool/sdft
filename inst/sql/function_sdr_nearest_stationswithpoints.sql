@@ -15,8 +15,10 @@ node_sql character varying;
 -- find the first service area where origin intersects 10 or more stations.
 -- don't do more work then we need.
 begin
-	select case
-	      when ( select count ( * ) from data.stations where origin_geom && service_area_1km ) >= 10 then
+	select
+	case
+		when
+			( select count ( * ) from data.stations where origin_geom && service_area_1km ) >= 10 then
 				'service_area_1km'
 				when ( select count ( * ) from data.stations where origin_geom && service_area_5km ) >= 10 then
 				'service_area_5km'
@@ -36,15 +38,15 @@ begin
 -- define virtual node sql, restrict to station vnodes (pid <= -30000000) or the origin pid and only ever pids < 0)
 -- have to separate this out to inject the origin node.
 node_sql := format ( 'select pid*-1 as pid, edge_id, frac::double precision as fraction from model.centroidnodes where (pid <= -30000000 or pid = %s) and pid <0', origin_node );
-raise notice '%', node_sql;
 return query execute format ( '
-			/* CTE table with intersected stations for the selected service area with station node pid joined */
+			/* cte table with intersected stations for the selected service area with station node pid joined */
 			with tmp as (select d.name, d.crscode, d.%1$s, d.location_geom, e.pid from data.stations d
 			left join model.centroidnodes e on d.crscode = e.reference
 			where $1 && %1$s)
-			select name, crscode, r.agg_cost as distance from tmp as d,
+			select name, crscode, r.agg_cost as distance from tmp as d
 			/* lateral runs the pgr function for each row of d */
-			lateral bbox_pgr_withpointscost(
+			/* left join lateral ensures nulls are returned - these need bigger bbox */
+			left join lateral bbox_pgr_withpointscost(
 			$edges$select id, source, target, cost_len as cost, the_geom
 			from openroads.roadlinks$edges$,
 			$2,
@@ -54,7 +56,7 @@ return query execute format ( '
 			$1,
 			d.location_geom,
 			expand_min := $4,
-			expand_pc := $5) r
+			expand_pc := $5) r ON true
 			order by distance asc limit 10', sa) using origin_geom,
 		node_sql,
 		origin_node,
