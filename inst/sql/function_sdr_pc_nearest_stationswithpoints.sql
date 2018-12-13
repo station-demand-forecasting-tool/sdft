@@ -10,12 +10,14 @@ node_sql character varying;
 origin_geom geometry;
 origin_node bigint;
 
--- find the first service area where origin intersects 10 or more stations.
--- don't do more work then we need.
+
 begin
 
 select geom from data.pc_pop_2011 where postcode = pc into origin_geom;
 select pid from model.centroidnodes where reference = pc into origin_node;
+
+-- find the first service area where origin intersects 10 or more stations.
+-- don't do more work then we need.
 
 select
 case

@@ -13,8 +13,7 @@ origin_node bigint;
 station_geom geometry;
 station_node bigint;
 
--- find the first service area where origin intersects 10 or more stations.
--- don't do more work then we need.
+
 begin
 
 select geom from data.pc_pop_2011 a where a.postcode = pc into origin_geom;
