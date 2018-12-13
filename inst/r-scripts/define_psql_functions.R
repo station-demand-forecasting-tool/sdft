@@ -50,6 +50,16 @@ dbGetQuery(con, query)
 query <- paste0(getSQL("inst/sql/function_sdr_nearest_stationswithpoints.sql"))
 dbGetQuery(con, query)
 
+## function to find nearets 10 stations using just postcode (text) as orign
+query <- paste0(getSQL("inst/sql/function_sdr_pc_nearest_stationswithpoints.sql"))
+dbGetQuery(con, query)
+
+## function to return distance only between a named postcode and a station
+## to be used to exapnd bbox on a one-off basis for any postcode:station pairs
+## where the distance returned null due to limits of bbox.
+query <- paste0(getSQL("inst/sql/sdr_pc_station_withpoints.sql"))
+dbGetQuery(con, query)
+
 
 
 
