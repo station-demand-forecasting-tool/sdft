@@ -15,7 +15,7 @@
 #' will try to approach before giving up or exiting. Default is 0.9.
 #' @export
 
-sdr_create_service_areas <- function(df, sa, schema, table, cost = "len", target = 0.9) {
+sdr_create_service_areas <- function(df, sa, schema, table, cost = "len", target = 0.9, check_nulls = FALSE) {
 
 total_stations <- nrow(df) # set number of records
 
@@ -82,7 +82,7 @@ for (i in sa) {
       column_name ,
       " = sa.geom  FROM (
       SELECT 1 as id, ST_ConcaveHull(ST_Collect(the_geom), ", target, " ) as geom from tmp) as sa
-      WHERE stations.crscode = '",
+      WHERE crscode = '",
       df$crscode[j] ,
       "';"
     )
@@ -92,8 +92,71 @@ for (i in sa) {
       x = query
     )
     dbGetQuery(con, query)
+
+    # check for null service area returned  - a potential problem with ST_ConcaveHull with
+    # target < 1
+    # If null, repeat with target set to 1
+
+    query <-
+      paste0(
+        "select location from " , paste0(schema, '.', table), " where ", column_name, " is null;"
+      )
+    query <- gsub(pattern = '\\s' ,
+                  replacement = " ",
+                  x = query)
+    stations_null <- dbGetQuery(con, query)
+
+    total_null <- nrow(stations_null) # set number of records
+
+    if (total_null > 0) {
+
+      query <- paste0(
+        "with tmp as
+      (
+      select dd.node, coalesce(a.the_geom, b.the_geom) as the_geom
+      from
+      pgr_withpointsdd($sql$
+      select id, source, target, cost_", cost, " as cost
+      from openroads.roadlinks where the_geom && st_buffer(st_setsrid(st_point(",
+        df$location[j] ,
+        "), 27700),",
+        buffer ,
+        ")$sql$,
+      $sql2$select pid, edge_id, fraction from openroads.vnodesneg_roadlinks$sql2$,
+      pgr_pointtoedgenode($str1$openroads.roadlinks$str1$, st_setsrid(st_point(",
+        df$location[j] ,
+        "), 27700), 1000),",
+        i ,
+        ", false)
+      as dd
+      left join openroads.roadnodes as a on dd.node = a.id
+      left join openroads.vnodesneg_roadlinks as b on dd.node = -b.pid
+      order by node
+      )
+      update ", paste0(schema, '.', table), " set ",
+        column_name ,
+        " = sa.geom  FROM (
+      SELECT 1 as id, ST_ConcaveHull(ST_Collect(the_geom), 1) as geom from tmp) as sa
+      WHERE crscode = '",
+        df$crscode[j] ,
+        "';"
+      )
+      query <- gsub(
+        pattern = '\\s',
+        replacement = " ",
+        x = query
+      )
+      dbGetQuery(con, query)
+
+    }
+
   }
 }
+
+#
+
+
+
 # end function
 }
 
