@@ -25,3 +25,12 @@ getSQL <- function(filepath){
   close(con)
   return(sql.string)
 }
+
+
+# formats db query before sending
+getQuery <- function(con, query) {
+  query <- gsub(pattern = '\\s' ,
+                replacement = " ",
+                x = query)
+  dbGetQuery(con, query)
+}

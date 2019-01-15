@@ -45,7 +45,7 @@ for (i in sa) {
       column_name,
       " geometry(Polygon,27700);"
     )
-  dbGetQuery(con, query)
+  getQuery(con, query)
 
   ## Note the pid provided in the virtual node sql to pgr_withpointsdd must be negative
   ## for the virtual nodes to be included when searching for nodes within driving distance.
@@ -86,12 +86,7 @@ for (i in sa) {
       df$crscode[j] ,
       "';"
     )
-    query <- gsub(
-      pattern = '\\s',
-      replacement = " ",
-      x = query
-    )
-    dbGetQuery(con, query)
+    getQuery(con, query)
 
     # check for null service area returned  - a potential problem with ST_ConcaveHull with
     # target < 1
@@ -101,10 +96,8 @@ for (i in sa) {
       paste0(
         "select location from " , paste0(schema, '.', table), " where ", column_name, " is null;"
       )
-    query <- gsub(pattern = '\\s' ,
-                  replacement = " ",
-                  x = query)
-    stations_null <- dbGetQuery(con, query)
+
+    stations_null <- getQuery(con, query)
 
     total_null <- nrow(stations_null) # set number of records
 
@@ -141,12 +134,7 @@ for (i in sa) {
         df$crscode[j] ,
         "';"
       )
-      query <- gsub(
-        pattern = '\\s',
-        replacement = " ",
-        x = query
-      )
-      dbGetQuery(con, query)
+      getQuery(con, query)
 
     }
 

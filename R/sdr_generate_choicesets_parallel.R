@@ -18,10 +18,7 @@ sdr_generate_choicesets_parallel <- function(crs) {
     data.pc_pop_2011 a, sa where sa.geom && a.geom
     "
     )
-  query <- gsub(pattern = '\\s' ,
-                replacement = " ",
-                x = query)
-  postcodes <- dbGetQuery(con, query)
+    postcodes <- getQuery(con, query)
 
 
   # Need to create virtual node for new stations
@@ -87,10 +84,7 @@ sdr_generate_choicesets_parallel <- function(crs) {
     tmp
     "
     )
-  query <- gsub(pattern = '\\s' ,
-                replacement = " ",
-                x = query)
-  dbGetQuery(con, query)
+  getQuery(con, query)
 
   query <- paste0(
     "
@@ -128,10 +122,7 @@ sdr_generate_choicesets_parallel <- function(crs) {
     ")
     "
     )
-  query <- gsub(pattern = '\\s' ,
-                replacement = " ",
-                x = query)
-  dbGetQuery(con, query)
+  getQuery(con, query)
 
   # generate choicesets using parallel processing
 
@@ -147,10 +138,7 @@ sdr_generate_choicesets_parallel <- function(crs) {
       "', 1000, 0.5)
       "
       )
-    query <- gsub(pattern = '\\s' ,
-                  replacement = " ",
-                  x = query)
-    nearestx <- dbGetQuery(con, query)
+    nearestx <- getQuery(con, query)
 
     if (nrow(nearestx) > 0) {
 
@@ -166,10 +154,7 @@ sdr_generate_choicesets_parallel <- function(crs) {
           "', 25000, 1)
           "
           )
-        query <- gsub(pattern = '\\s' ,
-                      replacement = " ",
-                      x = query)
-        d <- dbGetQuery(con, query)
+        d <- getQuery(con, query)
         # check if a distance is returned
         if (nrow(d) > 0) {
           nearestx$distance[j] <- d$distance
@@ -183,10 +168,7 @@ sdr_generate_choicesets_parallel <- function(crs) {
             "')
           "
           )
-          query <- gsub(pattern = '\\s' ,
-                        replacement = " ",
-                        x = query)
-          d <- dbGetQuery(con, query)
+          d <- getQuery(con, query)
           # just in case still no result trap and use -9999
           # how to deal with this??
           nearestx$distance[j] <- ifelse(nrow(d) > 0, d$distance, -9999)

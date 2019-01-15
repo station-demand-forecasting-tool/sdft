@@ -1,3 +1,0 @@
-id;name;stn_east;stn_north;acc_east;acc_north;freq;freqgrp;carsp;ticketm;busint;cctv;terminal;electric;tcbound;category;abstract
-HELST;HELSTON;166257;28051;166257;28051;20;na;25,50,100;y;n;y;y;n;n;e;
-NGLAN;NANCEGOLLAN;163911;32068;163911;32068;20;na;25;y;n;y;y;n;n;e;
