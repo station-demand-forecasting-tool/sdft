@@ -15,21 +15,21 @@ begin
 	select
 	case
 		when
-			( select count ( * ) from model.stations where origin_geom && service_area_1km ) >= 10 then
+			( select count ( * ) from model.stations where st_within(origin_geom, service_area_1km) ) >= 10 then
 				'service_area_1km'
-				when ( select count ( * ) from model.stations where origin_geom && service_area_5km ) >= 10 then
+				when ( select count ( * ) from model.stations where st_within(origin_geom, service_area_5km) ) >= 10 then
 				'service_area_5km'
-				when ( select count ( * ) from model.stations where origin_geom && service_area_10km ) >= 10 then
+				when ( select count ( * ) from model.stations where st_within(origin_geom, service_area_10km) ) >= 10 then
 				'service_area_10km'
-				when ( select count ( * ) from model.stations where origin_geom && service_area_20km ) >= 10 then
+				when ( select count ( * ) from model.stations where st_within(origin_geom, service_area_20km) ) >= 10 then
 				'service_area_20km'
-				when ( select count ( * ) from model.stations where origin_geom && service_area_30km ) >= 10 then
+				when ( select count ( * ) from model.stations where st_within(origin_geom, service_area_30km) ) >= 10 then
 				'service_area_30km'
-				when ( select count ( * ) from model.stations where origin_geom && service_area_40km ) >= 10 then
+				when ( select count ( * ) from model.stations where st_within(origin_geom, service_area_40km) ) >= 10 then
 				'service_area_40km'
-				when ( select count ( * ) from model.stations where origin_geom && service_area_30km ) >= 10 then
+				when ( select count ( * ) from model.stations where st_within(origin_geom, service_area_30km) ) >= 10 then
 				'service_area_60km'
-				when ( select count ( * ) from model.stations where origin_geom && service_area_40km ) >= 10 then
+				when ( select count ( * ) from model.stations where st_within(origin_geom, service_area_40km) ) >= 10 then
 				'service_area_80km' else 'service_area_105km'
 			end into sa;
 -- define virtual node sql, restrict to station vnodes (type = station) or the origin pid and only ever pids < 0)
@@ -39,7 +39,7 @@ return query execute format ( '
 			/* cte table with intersected stations for the selected service area with station node pid joined */
 			with tmp as (select d.name, d.crscode, d.%1$s, d.location_geom, e.pid from model.stations d
 			left join model.centroidnodes e on d.crscode = e.reference
-			where $1 && %1$s)
+			where st_within($1, %1$s))
 			select name, crscode, r.agg_cost as distance from tmp as d
 			/* lateral runs the pgr function for each row of d */
 			/* left join lateral ensures nulls are returned - these need bigger bbox */
