@@ -15,13 +15,13 @@ sdr_generate_choicesets_parallel <- function(crs) {
     select
     postcode
     from
-    data.pc_pop_2011 a, sa where sa.geom && a.geom
+    data.pc_pop_2011 a, sa where st_within(a.geom, sa.geom)
     "
     )
     postcodes <- getQuery(con, query)
 
 
-  # Need to create virtual node for new stations
+  # Need to create virtual nodes for new stations
   # create view of nodes table union with the new stations
   # including all existing stations but only the postcode nodes
   # that are needed, i.e. within the sa (so query above is used again in
@@ -66,7 +66,7 @@ sdr_generate_choicesets_parallel <- function(crs) {
     select
     postcode
     from
-    data.pc_pop_2011 a, sa where sa.geom && a.geom
+    data.pc_pop_2011 a, sa where st_within(a.geom, sa.geom)
     )
     UNION ALL
     select
