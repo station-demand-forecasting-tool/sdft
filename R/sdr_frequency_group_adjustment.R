@@ -1,12 +1,24 @@
+#' Adjusts the service frequency of stations based on frequency group
+#'
+#' Updates the probability table for a station (isolation) or
+#' stations (concurrent), adjusting the frequency variable for existing stations
+#' based on information provided in the frequency group input file.
+#'
+#' @param df A data frame containing the frequency group input. In isolation mode
+#' this will relate to a specific station. In concurrent mode there will only be
+#' a single frequency group across all stations.
+#' @param tablesuffix The suffix of the probability table to be updated - either a crscode
+#' (isolation) or 'concurrent' (concurrent) is expected.
+#' @export
 sdr_frequency_group_adjustment <- function(df, tablesuffix) {
   # count number of stations in the frequency group
   freqgrp_no <- length(strsplit(df$fgrp, ",")[[1]])
   df <-
-    data.frame(frgrp = t(df %>% separate(
+    data.frame(frgrp = t(df %>% tidyr::separate(
       fgrp, c(letters[1:freqgrp_no]), sep = ",", fill = "right"
     )))
   df <-
-    separate(
+    tidyr::separate(
       df,
       1,
       c("crs", "frequency"),

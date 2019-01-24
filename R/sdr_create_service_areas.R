@@ -1,23 +1,25 @@
-#' Create distance- or time-based network service areas around stations using
-#' pgRouting.
+#' Creates a distance or time based network service area around stations
 #'
-#' The service area geometries are written direct to database tables.
+#' Creates a distance or time based network service area around stations in
+#' the provided data frame using the pgRouting function \code{pgr_withpointsdd}. The
+#' service area geometry is written to the specified database table in the
+#' specified database schema.
 #'
 #' @param df A dataframe with a column called "location" which has easting and
 #' northing of the station location.
-#' @param sa a vector of integer values for the required service areas. Should be
-#' in metres when cost is distance and minutes when cost is time.
+#' @param sa A vector of integer values for the required service areas. Should
+#' be in metres when cost is distance and minutes when cost is time.
 #' @param schema A text string for the database schema name.
 #' @param table A text string for the database table name.
-#' @param cost. A text string, either "len" for a distance-based service area or
+#' @param cost A text string, either "len" for a distance-based service area or
 #' "time" for a time-based service area. Default is "len".
-#' @param target. the target percent of area of convex hull that ST_ConvexHull
+#' @param target The target percent of area of convex hull that ST_ConvexHull
 #' will try to approach before giving up or exiting. Default is 0.9.
 #' @export
+sdr_create_service_areas <- function(df, sa, schema, table, cost = "len", target = 0.9) {
 
-sdr_create_service_areas <- function(df, sa, schema, table, cost = "len", target = 0.9, check_nulls = FALSE) {
-
-total_stations <- nrow(df) # set number of records
+# set number of records
+total_stations <- nrow(df)
 
 # begin the service area loop i
 for (i in sa) {
@@ -140,10 +142,6 @@ for (i in sa) {
 
   }
 }
-
-#
-
-
 
 # end function
 }

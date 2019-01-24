@@ -44,8 +44,10 @@ execute format ('create temp table tmp as (select $1 as postcode, d.name, d.crsc
                                            left join model.centroidnodes e on d.crscode = e.reference
                                            where st_within($2, %1$s))', sa) using pc, origin_geom;
 
--- check if any of the station(s) crscode are present in tmp. if not we don't
+-- check if any of the station(s) crscodse are present in tmp. if not we don't
 -- need to bother looking up distances, and a null table is returned.
+-- convert crs to array (can be multiple stations for concurrent state in form
+-- "FEN, HON, AXM"
 if string_to_array(crs, ', ') && array(select t.crscode from tmp t)
 then
 return query execute format ( '

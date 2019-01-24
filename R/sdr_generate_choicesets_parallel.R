@@ -1,4 +1,24 @@
-
+#' Generates a choice set of ten nearest stations for postcodes
+#'
+#' For a given proposed station (isolation) or stations (concurrent)
+#' identifies the postcodes within 60 minutes of the station or stations and
+#' then generates a choice set of the nearest 10 stations to each of those
+#' postcodes.
+#'
+#' The function relies on several pgRouting wrapper functions that must be
+#' located in the openroads schema: \code{create_pgr_vnodes},
+#' \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints}, and
+#' \code{sdr_pc_station_withpoints_nobbox}.
+#'
+#' The function uses parallel processing via the foreach package and requires
+#' the clusters to be configured prior to calling the function.
+#'
+#' @param crs A character vector of the crscode of the station (isolation)
+#' or stations (concurrent) as they appear in the model.proposed_stations table.
+#' @return Returns a data frame containing the postcode choicesets with stations ranked
+#' by distance.
+#' @importFrom foreach %dopar%
+#' @export
 sdr_generate_choicesets_parallel <- function(crs) {
 
   # get postcodes within proposed station(s) 60 minute service area
@@ -126,7 +146,7 @@ sdr_generate_choicesets_parallel <- function(crs) {
 
   # generate choicesets using parallel processing
 
-  df <- foreach(i=postcodes$postcode, .noexport="con", .packages=c("DBI", "RPostgreSQL", "dplyr"), .combine = 'rbind') %dopar%
+  df <- foreach::foreach(i=postcodes$postcode, .noexport="con", .packages=c("DBI", "RPostgreSQL", "dplyr"), .combine = 'rbind') %dopar%
   {
 
     query <- paste0(
@@ -176,9 +196,9 @@ sdr_generate_choicesets_parallel <- function(crs) {
 
       } # end for each null station
 
-      choiceset <- nearestx %>% mutate("distance_rank" = row_number(distance)) %>%
-        filter(distance_rank <= 10) %>%
-        arrange(distance_rank)
+      choiceset <- nearestx %>% dplyr::mutate("distance_rank" = dplyr::row_number(distance)) %>%
+        dplyr::filter(distance_rank <= 10) %>%
+        dplyr::arrange(distance_rank)
 
 
     }  # end if nearestx not empty

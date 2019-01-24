@@ -1,3 +1,13 @@
+#' Populates the probability table of a station
+#'
+#' Populates the probability table of a station (isolation)
+#' or stations (concurrent) with the variables required to apply
+#' the station choice model. The variables are drawn from the model.proposed_stations
+#' and data.stations tables.
+#'
+#' @param tablesuffix The suffix of the probability table - either crscode
+#' (isolation) or 'concurrent' (concurrent) is expected.
+#' @export
 sdr_populate_probability_table <- function(tablesuffix) {
   # create columns
   query <- paste0(

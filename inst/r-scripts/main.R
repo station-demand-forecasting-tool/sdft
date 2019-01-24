@@ -265,7 +265,9 @@ clusterEvalQ(cl, {
 })
 
 if (isolation) {
+
   for (crscode in stations$crscode) {
+
     choicesets <- sdr_generate_choicesets_parallel(crscode)
 
     query <- paste0(
@@ -292,7 +294,6 @@ if (isolation) {
         TRUE,
       row.names = FALSE
     )
-
   }
 } else {
   choicesets <- sdr_generate_choicesets_parallel(stations$crscode)

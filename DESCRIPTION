@@ -10,3 +10,12 @@ Description: This model is intended to forecast demand for new local railway sta
 License: file LICENCE
 Encoding: UTF-8
 LazyData: true
+Imports:
+    dplyr,
+    tidyr,
+    foreach,
+    parallel,
+    doParallel,
+    RPostgreSQL,
+    magrittr
+RoxygenNote: 6.1.1

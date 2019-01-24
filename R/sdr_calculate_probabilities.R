@@ -1,3 +1,13 @@
+#' Calculates probabilities for postcode choicesets
+#'
+#' Calculates the probability of each station being chosen within the postcode choicesets
+#' contained in the specified probability table for the proposed station (isolation)
+#' or stations (concurrent). The required columns are created in the table.
+#' @param tablesuffix The suffix of the probability table - either crscode
+#' (isolation) or 'concurrent' (concurrent) is expected.
+#' @export
+
+
 sdr_calculate_probabilities <- function(tablesuffix) {
 
   # --------+--------------------------------------------------------------------
