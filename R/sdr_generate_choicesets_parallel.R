@@ -77,7 +77,7 @@ sdr_generate_choicesets_parallel <- function(crs, existing = FALSE , abs_crs = N
     pc_table = "data.stations"
   }
 
-  # Get postcodes within proposed station(s) 60 minute service area
+  # Get postcodes within the applicable 60 minute service area
   query <- paste0(
     "
     with sa as (
