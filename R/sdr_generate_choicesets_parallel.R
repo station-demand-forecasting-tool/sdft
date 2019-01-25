@@ -57,19 +57,18 @@
 #' @export
 sdr_generate_choicesets_parallel <- function(crs, existing = FALSE , abs_crs = NULL ) {
 
-  # This is a bit of an awkward approach. Think about a better solution.
-  # set the station crs codes to be used for the 60 minute service area
-  # used to identify relevant postcodes.
-  # This will be the content of crs unless abs_crs is specified.
+  # Set the station crs codes that will be used for the 60 minute service area
+  # used to identify relevant postcodes. This will be the content of crs unless
+  # abs_crs is specified.
   if (is.null(abs_crs)) {
     pc_crs = crs
   } else {
     pc_crs = abs_crs
   }
 
-  # set the table to be used to get the service area geometry
-  # if existing is tru alwats use model.proposed_stations. Otherwise
-  # depends on whether abs_crs is specified or not.
+  # Set the table to be used to get the service area geometry.
+  # If existing is TRUE always use model.proposed_stations. Otherwise
+  # it depends on whether abs_crs is specified or not.
   if (existing == TRUE) {
     pc_table = "data.stations"
   } else if (is.null(abs_crs)) {
@@ -78,7 +77,7 @@ sdr_generate_choicesets_parallel <- function(crs, existing = FALSE , abs_crs = N
     pc_table = "data.stations"
   }
 
-  # get postcodes within proposed station(s) 60 minute service area
+  # Get postcodes within proposed station(s) 60 minute service area
   query <- paste0(
     "
     with sa as (
@@ -98,14 +97,14 @@ sdr_generate_choicesets_parallel <- function(crs, existing = FALSE , abs_crs = N
     postcodes <- getQuery(con, query)
 
 
-  # Need to create virtual nodes for new stations
-  # create view of nodes table union with the new stations
+  # Need to create virtual nodes for new stations.
+  # Create view of nodes table union with the new stations
   # including all existing stations but only the postcode nodes
   # that are needed, i.e. within the sa (so query above is used again in
-  # the where statement)
-  # first cte tmp is getting virtual nodes for the proposed station(s)
-  # then select the station and relevant postcode nodes from openroads.centroidnodes
-  # then union all select the virtual node information from the cte tmp
+  # the where statement).
+  # First CTE (tmp) is getting virtual nodes for the proposed station(s);
+  # then select the station and relevant postcode nodes from openroads.centroidnodes;
+  # then union all select the virtual node information from tmp.
 
   query <- paste0(
     "create or replace view model.centroidnodes as
