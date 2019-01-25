@@ -55,7 +55,7 @@
 #' by distance.
 #' @importFrom foreach %dopar%
 #' @export
-sdr_generate_choicesets_parallel <- function(crs, existing = FALSE , abs_crs = NULL ) {
+sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
 
   # Set the station crs codes that will be used for the 60 minute service area
   # used to identify relevant postcodes. This will be the content of crs unless

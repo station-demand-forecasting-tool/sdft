@@ -295,7 +295,7 @@ if (isolation) {
     # get the first crscode for a station with name
     first_crs <- stations$crscode[stations$name == name][1]
     # generate the choiceset for that crs
-    choicesets <- sdr_generate_choicesets_parallel(first_crs)
+    choicesets <- sdr_generate_choicesets(first_crs)
 
     # remove rows for any postcode where the proposed station is not
     # in the choice set
@@ -342,7 +342,7 @@ if (isolation) {
     }
   }
 } else {
-  choicesets <- sdr_generate_choicesets_parallel(stations$crscode)
+  choicesets <- sdr_generate_choicesets(stations$crscode)
 
   # remove rows for any postcode where none of the proposed stations are in
   # the choice set
@@ -609,7 +609,7 @@ if (!is.character(unique(test$abstract))) {
   for (crscode in abs_stations$crscode) {
     # generate the choiceset for that crs
     choicesets <-
-      sdr_generate_choicesets_parallel(crscode, existing = TRUE)
+      sdr_generate_choicesets(crscode, existing = TRUE)
 
     # create before probability table for this crscode
     query <- paste0(
@@ -650,7 +650,7 @@ if (!is.character(unique(test$abstract))) {
       for (abs_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
       {
         choicesets <-
-          sdr_generate_choicesets_parallel(crscode, existing = FALSE, abs_crs = abs_crscode)
+          sdr_generate_choicesets(crscode, existing = FALSE, abs_crs = abs_crscode)
 
         # create after probability table for this abs_crscode:crscode
         query <- paste0(
@@ -695,7 +695,7 @@ if (!is.character(unique(test$abstract))) {
       # for each abs_crscode we pass all the proposed stations to the function
       # as all would be present in the after situation in concurrent mode
       choicesets <-
-        sdr_generate_choicesets_parallel(stations$crscode,
+        sdr_generate_choicesets(stations$crscode,
                                          existing = FALSE,
                                          abs_crs = abs_crscode)
 
