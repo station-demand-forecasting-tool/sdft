@@ -1,82 +1,25 @@
 #' Generates a choice set of ten nearest stations for postcodes
 #'
-#' For a given station or stations identifies the postcodes within 60 minutes of
-#' the station or stations and then generates a choice set of the nearest 10 stations to each of those
-#' postcodes. The function is also able to generate before and after choicesets for abstraction analysis.
+#' For a given proposed station (isolation) or stations (concurrent)
+#' identifies the postcodes within 60 minutes of the station or stations and
+#' then generates a choice set of the nearest 10 stations to each of those
+#' postcodes.
 #'
-#' If existing is set to \code{FALSE} then the crscodes in \code{crs} must be proposed
-#' stations. The function will obtain the 60 minute service area geometry from the
-#' model.proposed_stations table. If there is more than one crscode in \code{crs} then
-#' st_union will be applied to the individual service area geometries to create a
-#' single merged 60 minute service area (this is used when the concurrent mode has
-#' been selected for the model run).
-#'
-#' If existing is set to \code{TRUE} then the crscodes in \code{crs} must be existing
-#' stations (normally a single station). The function will obtain the 60 minute service
-#' area geometry from the data.stations table.
-#'
-#' If \code{abs_crs} is passed to the function then it should be a single crscode
-#' of an existing station. This is used to control whether a before or after set of
-#' postcode choicesets is required. To obtain a before choiceset for abstraction analysis
-#' pass the existing station crscode to the function using \code{crs}, set \code{existing}
-#' to \code{TRUE} and do not pass \code{abs_crs}. To obtain an after choiceset for
-#' abstraction analysis pass the proposed station(s) in \code{crs}, set \code{existing}
-#' to \code{FALSE} and pass the crscode of the existing station for which abstraction analysis
-#' is being carried out to \code{abs_crs}.
-#'
-#' The function uses parallel processing via the foreach package and requires
-#' the clusters to be configured prior to calling the function.
-#'
-#' The function submits db queries which rely on several pgRouting wrapper functions that must be
+#' The function relies on several pgRouting wrapper functions that must be
 #' located in the openroads schema: \code{create_pgr_vnodes},
 #' \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints}, and
 #' \code{sdr_pc_station_withpoints_nobbox}.
 #'
-#' Two views are created for use by these functions. The first is model.centroidnodes
-#' which is a union of virtual nodes for the proposed stations (which are created in the query)
-#' and virtual nodes for existing stations. The second is model.stations which is a union of
-#' stations from data.stations and model.proposed_stations containing the distance-based
-#' service areas used in identfying the nearest 10 stations to each postcode.
+#' The function uses parallel processing via the foreach package and requires
+#' the clusters to be configured prior to calling the function.
 #'
-#' For maximum flexibility to also use this function for abstraction analysis
-#' without code repetition, it should be noted that the union queries are
-#' used even when \code{existing} is set to \code{TRUE} and the crscode in \code{crs} is
-#' an existing station. In this case there will be no match with the stations in
-#' model.proposed_stations and that part of the union query will simply return null.
-#'
-#' @param crs A character vector of the crscode(s) of the station(s)
-#' for which a set of postcode choicesets is required.
-#' @param existing Logical. Indicates whether the station crscodes contained in
-#' \code{crs} are for existing (\code{TRUE}) or proposed (\code{FALSE}) stations.
-#' Default is \code{FALSE}.
-#' @param abs_crs Character. A single crs code of an existing station for which an
-#' after set of postcode choicesets is required. Optional.
+#' @param crs A character vector of the crscode of the station (isolation)
+#' or stations (concurrent) as they appear in the model.proposed_stations table.
 #' @return Returns a data frame containing the postcode choicesets with stations ranked
 #' by distance.
 #' @importFrom foreach %dopar%
 #' @export
-sdr_generate_choicesets_parallel <- function(crs, existing = FALSE , abs_crs = NULL ) {
-
-  # This is a bit of an awkward approach. Think about a better solution.
-  # set the station crs codes to be used for the 60 minute service area
-  # used to identify relevant postcodes.
-  # This will be the content of crs unless abs_crs is specified.
-  if (is.null(abs_crs)) {
-    pc_crs = crs
-  } else {
-    pc_crs = abs_crs
-  }
-
-  # set the table to be used to get the service area geometry
-  # if existing is tru alwats use model.proposed_stations. Otherwise
-  # depends on whether abs_crs is specified or not.
-  if (existing == TRUE) {
-    pc_table = "data.stations"
-  } else if (is.null(abs_crs)) {
-    pc_table = "model.proposed_stations"
-  } else {
-    pc_table = "data.stations"
-  }
+sdr_generate_choicesets_parallel <- function(crs) {
 
   # get postcodes within proposed station(s) 60 minute service area
   query <- paste0(
@@ -84,8 +27,8 @@ sdr_generate_choicesets_parallel <- function(crs, existing = FALSE , abs_crs = N
     with sa as (
     select st_union(geom) as geom from (
     select service_area_60mins
-    as geom from ", pc_table, " where crscode in (",
-    paste ("'", pc_crs, "'", sep = "", collapse = ", ") ,
+    as geom from model.proposed_stations where crscode in (",
+    paste ("'", crs, "'", sep = "", collapse = ", ") ,
     ")
     ) as foo
     )
@@ -135,8 +78,8 @@ sdr_generate_choicesets_parallel <- function(crs, existing = FALSE , abs_crs = N
     with sa as (
     select st_union(geom) as geom from (
     select service_area_60mins
-    as geom from ", pc_table, " where crscode in (",
-    paste ("'", pc_crs, "'", sep = "", collapse = ", ") ,
+    as geom from model.proposed_stations where crscode in (",
+    paste ("'", crs, "'", sep = "", collapse = ", ") ,
     ")
     ) as foo
     )

@@ -9,7 +9,41 @@ library(doParallel)
 library(keyring)
 library(RPostgreSQL)
 drv <- dbDriver("PostgreSQL")
-con <- dbConnect(drv, host="localhost", user="postgres", password=key_get("postgres"), dbname="dafni")
+con <-
+  dbConnect(
+    drv,
+    host = "localhost",
+    user = "postgres",
+    password = key_get("postgres"),
+    dbname = "dafni"
+  )
+
+# set up parallel processing
+
+cl <- makeCluster(detectCores() - 2)
+registerDoParallel(cl)
+
+clusterEvalQ(cl, {
+  library(DBI)
+  library(RPostgreSQL)
+  library(keyring)
+  getQuery <- function(con, query) {
+    query <- gsub(pattern = '\\s' ,
+                  replacement = " ",
+                  x = query)
+    dbGetQuery(con, query)
+  }
+  drv <- dbDriver("PostgreSQL")
+  con <-
+    dbConnect(
+      drv,
+      host = "localhost",
+      user = "postgres",
+      password = key_get("postgres"),
+      dbname = "dafni"
+    )
+  NULL
+})
 
 # load configuration data-------------------------------------------------------
 
@@ -152,7 +186,8 @@ query <- paste0(
   update model.exogenous_input a
   set geom =
   (select distinct on (centroid) geom from tmp where a.centroid = tmp.centroid)
-  ")
+  "
+)
 getQuery(con, query)
 
 
@@ -182,8 +217,9 @@ getQuery(con, query)
 # for type 'houses' we get the average household size for the local authority
 # in which the postcode is located then calculate population and populate
 # population column and avg_hhsize column.
-query <- paste0("
-                with tmp as (
+query <- paste0(
+  "
+  with tmp as (
   select a.id, c.avg_hhsize_2019, a.number * c.avg_hhsize_2019 as population
   from model.exogenous_input a
   left join data.pc_pop_2011 b
@@ -191,12 +227,13 @@ query <- paste0("
   left join data.hhsize c
   on b.oslaua = c.area_code
   where type = 'houses')
-update model.exogenous_input a
-set population = tmp.population,
-avg_hhsize = tmp.avg_hhsize_2019
-from tmp
-where a.id = tmp.id;
-                ")
+  update model.exogenous_input a
+  set population = tmp.population,
+  avg_hhsize = tmp.avg_hhsize_2019
+  from tmp
+  where a.id = tmp.id;
+  "
+)
 getQuery(con, query)
 
 
@@ -242,35 +279,7 @@ sdr_create_service_areas(
 
 # create probability table------------------------------------------------------
 
-# set up for parallel processing
-
-cl <- makeCluster(detectCores() - 2)
-registerDoParallel(cl)
-
-clusterEvalQ(cl, {
-  library(DBI)
-  library(RPostgreSQL)
-  library(keyring)
-  getQuery <- function(con, query) {
-    query <- gsub(pattern = '\\s' ,
-                  replacement = " ",
-                  x = query)
-    dbGetQuery(con, query)
-  }
-  drv <- dbDriver("PostgreSQL")
-  con <-
-    dbConnect(
-      drv,
-      host = "localhost",
-      user = "postgres",
-      password = key_get("postgres"),
-      dbname = "dafni"
-    )
-  NULL
-})
-
 if (isolation) {
-
   # we only want to generate choice set once for each unique station
   # as this is a long and processor intense function.
   # Multiple stations with the same choice set can be input to for sensitivity
@@ -299,7 +308,6 @@ if (isolation) {
 
     # for every crscode with the same station
     for (crscode in stations$crscode[stations$name == name]) {
-
       # amend the station crscode in the choice set to the current
       # crscode
       choicesets$crscode[choicesets$crscode == first_crs] <- crscode
@@ -368,15 +376,11 @@ if (isolation) {
   )
 }
 
-stopCluster(cl)
-
-
 # populate probability table(s)-------------------------------------------------
 
 
 if (isolation) {
   for (crscode in stations$crscode) {
-
     # populate probability table
     sdr_populate_probability_table(crscode)
 
@@ -391,9 +395,8 @@ if (isolation) {
     # calculate probabilities
     sdr_calculate_probabilities(crscode)
 
-    }
+  }
 } else {
-
   # populate probability table
   sdr_populate_probability_table("concurrent")
 
@@ -407,7 +410,7 @@ if (isolation) {
 
     sdr_frequency_group_adjustment(df, "concurrent")
 
-    }
+  }
 
   # calculate probabilities
   sdr_calculate_probabilities("concurrent")
@@ -419,7 +422,7 @@ if (isolation) {
 # create and populate 1-minute workplace population column in proposed_stations
 
 query <- paste0("
-alter table model.proposed_stations
+                alter table model.proposed_stations
                 add column workpop_1min int8
                 ")
 getQuery(con, query)
@@ -446,13 +449,13 @@ getQuery(con, query)
 
 query <- paste0(
   "
-with tmp as (
-select a.crscode, b.centroid, b.number
+  with tmp as (
+  select a.crscode, b.centroid, b.number
   from model.proposed_stations a
   left join model.exogenous_input b
   on st_within(b.geom, a.service_area_1mins)
   where b.type = 'jobs'
-)
+  )
   update model.proposed_stations a
   set workpop_1min = workpop_1min +
   (select coalesce(sum(number), 0) from tmp where a.crscode = tmp.crscode)
@@ -465,7 +468,7 @@ getQuery(con, query)
 # create column in proposed_stations table
 
 query <- paste0("
-alter table model.proposed_stations
+                alter table model.proposed_stations
                 add column prw_pop int8
                 ")
 getQuery(con, query)
@@ -473,12 +476,10 @@ getQuery(con, query)
 
 if (isolation) {
   for (crscode in stations$crscode) {
-
-  sdr_calculate_prweighted_population(crscode, crscode)
+    sdr_calculate_prweighted_population(crscode, crscode)
 
   }
 } else {
-
   sdr_calculate_prweighted_population(crscode, "concurrent")
 
 }
@@ -486,11 +487,13 @@ if (isolation) {
 
 # Generate forecasts------------------------------------------------------------
 
-query <- paste0("
-alter table model.proposed_stations
-                add column forecast_base int8,
-                add column forecast_uplift int8;
-                ")
+query <- paste0(
+  "
+  alter table model.proposed_stations
+  add column forecast_base int8,
+  add column forecast_uplift int8;
+  "
+)
 getQuery(con, query)
 
 
@@ -558,7 +561,7 @@ query <- paste0(
   update model.proposed_stations a set forecast_base = tmp.forecast_base from tmp
   where a.id = tmp.id;
   "
-)
+  )
 getQuery(con, query)
 
 # regional-based uplift forecast
@@ -574,8 +577,157 @@ query <- paste0(
   )
   update model.proposed_stations a set forecast_uplift = tmp.forecast_uplift from tmp
   where a.id = tmp.id;
-  ")
+  "
+)
 getQuery(con, query)
 
 
+# Abstraction analysis----------------------------------------------------------
 
+# only process if abstraction analysis is required.
+# if unique value of abstract column is not a character then there are no abstraction stations
+# care needed, depends on the input file, assumes empty in this position of delimited file.
+
+if (!is.character(unique(test$abstract))) {
+  # For some components of the analysis we only need to consider unique stations
+  # where abstraction analysis is required across all the proposed stations, so
+  # lets get a vector of those
+  abs_stations <- unique(unlist(strsplit(stations$abstract, ",")))
+
+  query <- paste0(
+    "
+    select crscode, easting || ',' || northing as location from data.stations where
+    crscode in (",
+    paste ("'", abs_stations, "'", sep = "", collapse = ",") ,
+    ")
+    "
+    )
+  abs_stations <- getQuery(con, query)
+
+  # create before choicesets for each unique abstraction station
+
+  for (crscode in abs_stations$crscode) {
+    # generate the choiceset for that crs
+    choicesets <-
+      sdr_generate_choicesets_parallel(crscode, existing = TRUE)
+
+    # create before probability table for this crscode
+    query <- paste0(
+      "create table model.abs_before_",
+      tolower(crscode),
+      "
+      (
+      id            serial primary key,
+      postcode      text,
+      crscode       text,
+      distance      double precision,
+      distance_rank smallint
+      );
+      "
+    )
+    getQuery(con, query)
+
+    # write the table for this crscode
+    dbWriteTable(
+      conn = con,
+      name = c('model', paste0("abs_before_",
+                               tolower(crscode))),
+      choicesets,
+      append =
+        TRUE,
+      row.names = FALSE
+    )
+
+  }
+
+  # create after choicesets - depends on whether isolation or concurrent method
+
+  # for isolation we loop through each proposed station and then use a nested loop for
+  # each of the stations where abstraction analysis is required
+
+  if (isolation) {
+    for (crscode in stations$crscode) {
+      for (abs_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
+      {
+        choicesets <-
+          sdr_generate_choicesets_parallel(crscode, existing = FALSE, abs_crs = abs_crscode)
+
+        # create after probability table for this abs_crscode:crscode
+        query <- paste0(
+          "create table model.abs_after_",
+          tolower(abs_crscode),
+          "_",
+          tolower(crscode),
+          "
+          (
+          id            serial primary key,
+          postcode      text,
+          crscode       text,
+          distance      double precision,
+          distance_rank smallint
+          );
+          "
+        )
+        getQuery(con, query)
+
+        # write the table for this abs_crscode:crscode
+        dbWriteTable(
+          conn = con,
+          name = c('model', paste0(
+            "abs_after_",
+            tolower(abs_crscode),
+            "_",
+            tolower(crscode)
+          )),
+          choicesets,
+          append =
+            TRUE,
+          row.names = FALSE
+        )
+      }
+    }
+  } else {
+    # abstraction entry MUST be same for all proposed stations when submitted, so we
+    # just need to get the entry for the first row and loop through each of the
+    # requested abstraction analysis stations.
+    for (abs_crscode in unlist(strsplit(stations$abstract[1], ","))) {
+
+      # for each abs_crscode we pass all the proposed stations to the function
+      # as all would be present in the after situation in concurrent mode
+      choicesets <-
+        sdr_generate_choicesets_parallel(stations$crscode,
+                                         existing = FALSE,
+                                         abs_crs = abs_crscode)
+
+      # create after probability table for this abs_crscode and all proposed stations
+      query <- paste0(
+        "create table model.abs_after_",
+        tolower(abs_crscode),
+        "_concurrent
+        (
+        id            serial primary key,
+        postcode      text,
+        crscode       text,
+        distance      double precision,
+        distance_rank smallint
+        );
+        "
+      )
+      getQuery(con, query)
+
+      # write the probability table for this abs_crscode and all proposed stations
+      dbWriteTable(
+        conn = con,
+        name = c('model', paste0(
+          "abs_after_",
+          tolower(abs_crscode),
+          "_concurrent"
+        )),
+        choicesets,
+        append =
+          TRUE,
+        row.names = FALSE
+      )
+    }
+  }
+} #end abstraction analysis
