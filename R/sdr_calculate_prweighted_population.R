@@ -76,15 +76,10 @@ sdr_calculate_prweighted_population <- function(crs, tablesuffix) {
       crs,
       "'))
       )
-      update model.proposed_stations set prw_pop =
-      (select round(coalesce(nw_pop.sum, 0) + coalesce(w_pop.sum, 0) + coalesce(adj_pop.sum, 0)) as w_pop from nw_pop, w_pop, adj_pop)
-      where crscode = '",
-      crs,
-      "'
+      select round(coalesce(nw_pop.sum, 0) + coalesce(w_pop.sum, 0) + coalesce(adj_pop.sum, 0)) as w_pop from nw_pop, w_pop, adj_pop
       "
       )
-    getQuery(con, query)
-
+    result <- getQuery(con, query)
   } else {
     query <- paste0(
       "
@@ -120,13 +115,11 @@ sdr_calculate_prweighted_population <- function(crs, tablesuffix) {
       "'
       where type = 'population' or type = 'houses'
       )
-      update model.proposed_stations set prw_pop =
-      (select round(coalesce(nw_pop.sum, 0) + coalesce(w_pop.sum, 0) + coalesce(adj_pop.sum, 0)) as w_pop from nw_pop, w_pop, adj_pop)
-      where crscode = '",
-      crs,
-      "'
+      select round(coalesce(nw_pop.sum, 0) + coalesce(w_pop.sum, 0) + coalesce(adj_pop.sum, 0)) as w_pop from nw_pop, w_pop, adj_pop
       "
       )
-    getQuery(con, query)
+    result <- getQuery(con, query)
   }
+
+return(result)
 }
