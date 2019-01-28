@@ -81,11 +81,11 @@ sdr_calculate_probabilities <- function(tablesuffix) {
       " SET te19_sum_expv = b.sumexpv from
       (
       SELECT id, (sum(te19_expv) OVER (PARTITION BY postcode)) as sumexpv FROM model.probability_",
-      tolower(crscode),
+      tolower(tablesuffix),
       "
       ) as b
       where b.id = model.probability_",
-      tolower(crscode),
+      tolower(tablesuffix),
       ".id;
       "
       )
