@@ -474,15 +474,26 @@ query <- paste0("
 getQuery(con, query)
 
 
-if (isolation) {
-  for (crscode in stations$crscode) {
-    sdr_calculate_prweighted_population(crscode, crscode)
+for (crscode in stations$crscode) {
+  if (isolation) {
+    prweighted_pop <-
+      sdr_calculate_prweighted_population(crscode, crscode)
+  } else {
+    prweighted_pop <-
+      sdr_calculate_prweighted_population(crscode, "concurrent")
 
   }
-} else {
-  sdr_calculate_prweighted_population(crscode, "concurrent")
+ # update model.proposed_stations table
+
+  query <- paste0("
+                  update model.proposed_stations set prw_pop = ", prweighted_pop,
+      " where crscode = '",
+                  crscode, "'")
+  getQuery(con, query)
 
 }
+
+
 
 
 # Generate forecasts------------------------------------------------------------
@@ -613,7 +624,7 @@ if (!is.character(unique(test$abstract))) {
 
     # create before probability table for this crscode
     query <- paste0(
-      "create table model.abs_before_",
+      "create table model.probability_before_abs_",
       tolower(crscode),
       "
       (
@@ -630,13 +641,15 @@ if (!is.character(unique(test$abstract))) {
     # write the table for this crscode
     dbWriteTable(
       conn = con,
-      name = c('model', paste0("abs_before_",
+      name = c('model', paste0("probability_before_abs_",
                                tolower(crscode))),
       choicesets,
       append =
         TRUE,
       row.names = FALSE
     )
+
+    # need to populate the before tables and calulcate probabilities and get weighted population.
 
   }
 
@@ -652,11 +665,19 @@ if (!is.character(unique(test$abstract))) {
         choicesets <-
           sdr_generate_choicesets(crscode, existing = FALSE, abs_crs = abs_crscode)
 
+        # remove rows for any postcode where the abs_crscode is not
+        # in the choice set
+
+        choicesets <- choicesets %>%
+          group_by(postcode) %>%
+          filter(any(crscode == abs_crscode)) %>%
+          ungroup
+
         # create after probability table for this abs_crscode:crscode
         query <- paste0(
-          "create table model.abs_after_",
+          "create table model.probability_",
           tolower(abs_crscode),
-          "_",
+          "_after_abs_",
           tolower(crscode),
           "
           (
@@ -674,9 +695,9 @@ if (!is.character(unique(test$abstract))) {
         dbWriteTable(
           conn = con,
           name = c('model', paste0(
-            "abs_after_",
+            "probability_",
             tolower(abs_crscode),
-            "_",
+            "_after_abs_",
             tolower(crscode)
           )),
           choicesets,
@@ -684,6 +705,43 @@ if (!is.character(unique(test$abstract))) {
             TRUE,
           row.names = FALSE
         )
+
+        # populate probability table
+        sdr_populate_probability_table(paste0(
+          tolower(abs_crscode),
+          "_after_abs_",
+          tolower(crscode)))
+
+
+        # make frequency group adjustments if required
+        if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
+          df <-
+            data.frame(fgrp = config[config$group_id == stations$freqgrp[stations$crscode == crscode], "group_crs"], stringsAsFactors = FALSE)
+          sdr_frequency_group_adjustment(df, paste0(
+            tolower(abs_crscode),
+            "_after_abs_",
+            tolower(crscode)))
+
+        } # end if freqgrp
+
+
+        # calculate probabilities
+        sdr_calculate_probabilities(paste0(
+          tolower(abs_crscode),
+          "_after_abs_",
+          tolower(crscode)))
+
+
+        # get probability weighted population
+
+        prweighted_pop <-
+          sdr_calculate_prweighted_population(abs_crscode, paste0(
+            tolower(abs_crscode),
+            "_after_abs_",
+            tolower(crscode)))
+
+
+
       }
     }
   } else {
@@ -699,11 +757,19 @@ if (!is.character(unique(test$abstract))) {
                                          existing = FALSE,
                                          abs_crs = abs_crscode)
 
+      # remove rows for any postcode where abs_crscode is not in
+      # the choice set
+
+      choicesets <- choicesets %>%
+        group_by(postcode) %>%
+        filter(any(crscode %in% abs_crscode)) %>%
+        ungroup
+
       # create after probability table for this abs_crscode and all proposed stations
       query <- paste0(
-        "create table model.abs_after_",
+        "create table model.probability_",
         tolower(abs_crscode),
-        "_concurrent
+        "_after_abs_concurrent
         (
         id            serial primary key,
         postcode      text,
@@ -719,15 +785,48 @@ if (!is.character(unique(test$abstract))) {
       dbWriteTable(
         conn = con,
         name = c('model', paste0(
-          "abs_after_",
+          "probability_",
           tolower(abs_crscode),
-          "_concurrent"
+          "_after_abs_concurrent"
         )),
         choicesets,
         append =
           TRUE,
         row.names = FALSE
       )
+
+      sdr_populate_probability_table(paste0(
+        tolower(abs_crscode),
+        "_after_abs_concurrent"))
+
+
+      # make frequency group adjustments if required
+      # must only be a single identical frequency group for all stations under concurrent treatment
+      # So we just check the first row for the group name and process once
+
+      if (!is.na(stations$freqgrp[1])) {
+        df <-
+          data.frame(fgrp = config[config$group_id == stations$freqgrp[1], "group_crs"], stringsAsFactors = FALSE)
+
+        sdr_frequency_group_adjustment(df, paste0(
+          tolower(abs_crscode),
+          "_after_abs_concurrent"))
+
+      }
+
+      # calculate probabilities
+      sdr_calculate_probabilities(paste0(
+        tolower(abs_crscode),
+        "_after_abs_concurrent"))
+
+      # get probability weighted population
+
+      prweighted_pop <-
+        sdr_calculate_prweighted_population(abs_crscode, paste0(
+          tolower(abs_crscode),
+          "_after_abs_concurrent"))
+
+
     }
   }
 } #end abstraction analysis
