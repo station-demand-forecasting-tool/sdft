@@ -264,7 +264,7 @@ sdr_create_service_areas(
 )
 
 
-# Generate probability table----------------------------------------------------
+# Generate probability tables---------------------------------------------------
 
 if (isolation) {
   # As multiple stations with the same choice set can be input for sensitivity
@@ -530,6 +530,49 @@ if (!is.character(unique(stations$abstract))) {
   )
   abs_stations <- getQuery(con, query)
 
+  # Create the abstraction results table
+
+  query <- paste0(
+    "create table model.abstraction_results (
+    id serial,
+    proposed text,
+    at_risk text,
+    prwpop_before integer,
+    prwpop_after integer,
+    change integer,
+    pc_change float
+  )"
+  )
+  getQuery(con, query)
+
+  # populate abstraction results table with proposed (or 'concurrent') and at_risk stations
+  if (isolation) {
+    for (proposed in stations$crscode) {
+      for (at_risk in unlist(strsplit(stations$abstract[stations$crscode == proposed], ",")))
+      {
+        query <- paste0(
+          "insert into model.abstraction_results (id, proposed, at_risk) values (default,'",
+          proposed,
+          "','",
+          at_risk,
+          "');"
+        )
+        getQuery(con, query)
+      }
+    }
+  } else {
+    for (at_risk in unlist(strsplit(stations$abstract[1], ",")))
+    {
+      query <- paste0(
+        "insert into model.abstraction_results (id, proposed, at_risk) values (default,'concurrent','",
+        at_risk,
+        "');"
+      )
+      getQuery(con, query)
+    }
+  }
+
+
   # create the before choicesets and probability table for each unique abstraction station
 
   for (crscode in abs_stations$crscode) {
@@ -550,9 +593,17 @@ if (!is.character(unique(stations$abstract))) {
 
     # get probability weighted population
 
-    prweighted_pop <-
+    prweighted_pop_before <-
       sdr_calculate_prweighted_population(crscode, paste0(tolower(crscode),
                                                           "_before_abs"))
+
+    # update results table for any where at_risk == crscode
+
+    query <- paste0(
+      "update model.abstraction_results set prwpop_before = ", prweighted_pop_before,
+      " where at_risk = '", crscode, "'"
+    )
+    getQuery(con, query)
 
   }
 
@@ -602,13 +653,21 @@ if (!is.character(unique(stations$abstract))) {
 
         # get probability weighted population
 
-        prweighted_pop <-
+        prweighted_pop_after <-
           sdr_calculate_prweighted_population(abs_crscode,
                                               paste0(
                                                 tolower(abs_crscode),
                                                 "_after_abs_",
                                                 tolower(crscode)
                                               ))
+
+        # update results table
+
+        query <- paste0(
+          "update model.abstraction_results set prwpop_after = ", prweighted_pop_after,
+          " where proposed = '", crscode, "' and at_risk = '", abs_crscode, "'"
+        )
+        getQuery(con, query)
 
       }
     }
@@ -653,9 +712,19 @@ if (!is.character(unique(stations$abstract))) {
 
       # get probability weighted population
 
-      prweighted_pop <-
+      prweighted_pop_concurrent <-
         sdr_calculate_prweighted_population(abs_crscode, paste0(tolower(abs_crscode),
                                                                 "_after_abs_concurrent"))
+
+      # update results table
+
+      query <- paste0(
+        "update model.abstraction_results set prwpop_after = ", prweighted_pop_concurrent,
+        " where proposed = 'concurrent' and at_risk = '", abs_crscode, "'"
+      )
+      getQuery(con, query)
+
+
     }
   }
 } #end abstraction analysis
