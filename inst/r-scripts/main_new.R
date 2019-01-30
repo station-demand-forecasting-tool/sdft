@@ -132,7 +132,7 @@ query <- paste0(
 getQuery(con, query)
 
 
-# Create table of exogenous inputs----------------------------------------------
+# Prepare exogenous inputs----------------------------------------------
 
 dbWriteTable(
   conn = con,
@@ -597,7 +597,7 @@ if (!is.character(unique(stations$abstract))) {
       sdr_calculate_prweighted_population(crscode, paste0(tolower(crscode),
                                                           "_before_abs"))
 
-    # update results table for any where at_risk == crscode
+    # update abstraction_results table for any where at_risk == crscode
 
     query <- paste0(
       "update model.abstraction_results set prwpop_before = ", prweighted_pop_before,
@@ -661,7 +661,7 @@ if (!is.character(unique(stations$abstract))) {
                                                 tolower(crscode)
                                               ))
 
-        # update results table
+        # update abstraction_results table
 
         query <- paste0(
           "update model.abstraction_results set prwpop_after = ", prweighted_pop_after,
@@ -716,7 +716,7 @@ if (!is.character(unique(stations$abstract))) {
         sdr_calculate_prweighted_population(abs_crscode, paste0(tolower(abs_crscode),
                                                                 "_after_abs_concurrent"))
 
-      # update results table
+      # update abstraction_results table
 
       query <- paste0(
         "update model.abstraction_results set prwpop_after = ", prweighted_pop_concurrent,
