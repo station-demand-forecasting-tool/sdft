@@ -1,13 +1,14 @@
-# requires: dplyr, tidyr, foreach and doParallel libraries
+# Preliminaries-----------------------------------------------------------------
 
 library(dplyr)
 library(tidyr)
 library(foreach)
-library(parallel)
 library(doParallel)
-
 library(keyring)
 library(RPostgreSQL)
+
+# set up database connection
+
 drv <- dbDriver("PostgreSQL")
 con <-
   dbConnect(
@@ -45,7 +46,7 @@ clusterEvalQ(cl, {
   NULL
 })
 
-# load configuration data-------------------------------------------------------
+# Load configuration data-------------------------------------------------------
 
 config <-
   read.csv(file = "inst/example_input/config.csv",
@@ -55,7 +56,8 @@ config <-
 isolation <- ifelse(config$method == "isolation", TRUE, FALSE)
 
 
-# load station input data-------------------------------------------------------
+# Load station data-------------------------------------------------------------
+
 
 stations <-
   read.csv(file = "inst/example_input/stations.csv",
@@ -78,24 +80,21 @@ exogenous <-
 
 
 
-# database setup----------------------------------------------------------------
+# Database setup----------------------------------------------------------------
 
 
 # create db schema to hold model data
 
-schema <- "model"
-
 query <- paste0("
-                create schema ", schema, " authorization postgres;
+                create schema model authorization postgres;
                 ")
 getQuery(con, query)
-
 
 # write data.frame of proposed stations to postgresql table
 
 dbWriteTable(
   conn = con,
-  name = c(schema, 'proposed_stations'),
+  name = c('model', 'proposed_stations'),
   stations,
   append =
     FALSE,
@@ -113,39 +112,31 @@ query <- paste0("
                 ")
 getQuery(con, query)
 
-
-
 # create geometry column in proposed_stations table
 
 query <- paste0(
   "
-  alter table ",
-  schema,
-  ".proposed_stations add column location_geom geometry(Point,27700);
+  alter table model.proposed_stations add column location_geom geometry(Point,27700);
   "
 )
 getQuery(con, query)
-
 
 # populate location_geom
 
 query <- paste0(
   "
-  update ",
-  schema,
-  ".proposed_stations set location_geom =
+  update model.proposed_stations set location_geom =
   ST_GeomFromText('POINT('||stn_east||' '||stn_north||')', 27700);
   "
 )
 getQuery(con, query)
 
 
-# create table of exogenous inputs----------------------------------------------
-
+# Create table of exogenous inputs----------------------------------------------
 
 dbWriteTable(
   conn = con,
-  name = c(schema, 'exogenous_input'),
+  name = c('model', 'exogenous_input'),
   exogenous,
   append =
     FALSE,
@@ -163,11 +154,11 @@ query <- paste0("
                 ")
 getQuery(con, query)
 
-# add and populate geom column for the exogenous centroid
-# can be either a postcode centroid or a workplace centroid
+# Add and populate geom column for the exogenous centroids.
+# Can be either a postcode centroid or a workplace centroid
 
-# note, need to get Scottish workplace zone population that is now available.
-# re-calibrate TE model?
+# Note: need to get Scottish workplace zone population that is now available.
+# Re-calibrate the trip end model?
 
 query <- paste0("
                 alter table model.exogenous_input
@@ -190,8 +181,7 @@ query <- paste0(
 )
 getQuery(con, query)
 
-
-# create columns and populate data that will be used for adjusting postcode
+# Create columns and populate data that will be used for adjusting postcode
 # probability weighted population
 
 # population column
@@ -204,8 +194,7 @@ query <- paste0(
 )
 getQuery(con, query)
 
-
-# copy from number to population for type 'population'
+# Copy from number to population for type 'population'
 query <- paste0("
                 update model.exogenous_input set population = number where type
                 ='population';
@@ -213,9 +202,9 @@ query <- paste0("
 getQuery(con, query)
 
 
-# for type 'houses' we get the average household size for the local authority
-# in which the postcode is located then calculate population and populate
-# population column and avg_hhsize column.
+# For type 'houses' we get the average household size for the local authority
+# in which the postcode is located then calculate population and then populate
+# the population column and avg_hhsize column.
 query <- paste0(
   "
   with tmp as (
@@ -239,36 +228,35 @@ getQuery(con, query)
 
 # Create station service areas--------------------------------------------------
 
-
 # create distance-based service areas used in identifying nearest 10 stations to
 # each postcode centroid
 
 sdr_create_service_areas(
   df = stations,
-  schema = schema,
+  schema = "model",
   table = "proposed_stations",
   sa = c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000),
   cost = "len"
 )
 
-# create 60 minute service area - used to identify postcode centroids to be
+# Create 60 minute service area - used to identify postcode centroids to be
 # considered for inclusion in model
 
 sdr_create_service_areas(
   df = stations,
-  schema = schema,
+  schema = "model",
   table = "proposed_stations",
   sa = c(60),
   cost = "time",
   target = 0.9
 )
 
-# create 1 minute service area - used to identify number of jobs within 1 minute
+# Create 1 minute service area - used to identify number of jobs within 1 minute
 # of station
 
 sdr_create_service_areas(
   df = stations,
-  schema = schema,
+  schema = "model",
   table = "proposed_stations",
   sa = c(1),
   cost = "time",
@@ -276,16 +264,15 @@ sdr_create_service_areas(
 )
 
 
-# generate probability table----------------------------------------------------
+# Generate probability table----------------------------------------------------
 
 if (isolation) {
-  # we only want to generate choice set once for each unique station
-  # as this is a long and processor intensive  function.
-  # Multiple stations with the same choice set can be input to for sensitivity
-  # testing
-
-  # This is bit of a workaround prior to a larger re-code of various elements
-  # to separate out generation of the choice sets (and the service areas above)
+  # As multiple stations with the same choice set can be input for sensitivity
+  # testing, we only want to generate the choice sets once for each unique station
+  # as this is a long and processor intensive function. This is a bit of a
+  # workaround to acheieve that. May be cleaner with a re-code of various elements
+  # to separate out generation of the choice sets (and the service areas above) from
+  # the proposed_stations table.
 
   # get df of unique station name
   unique_stations <- stations %>% distinct(name, .keep_all = FALSE)
@@ -307,16 +294,17 @@ if (isolation) {
 
       # make frequency group adjustments if required
       if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
+
         df <-
           data.frame(fgrp = config[config$group_id == stations$freqgrp[stations$crscode == crscode],
                                    "group_crs"], stringsAsFactors = FALSE)
+
         sdr_frequency_group_adjustment(df, crscode)
 
       } # end if freqgrp
 
       # calculate the probabilities
       sdr_calculate_probabilities(crscode)
-
     }
   }
 } else {
@@ -336,15 +324,14 @@ if (isolation) {
 
     sdr_frequency_group_adjustment(df, "concurrent")
 
-  }
+  } # end if freqgrp
 
   # calculate probabilities
   sdr_calculate_probabilities("concurrent")
-
 }
 
 
-# trip end model----------------------------------------------------------------
+# Trip end model----------------------------------------------------------------
 
 # create and populate 1-minute workplace population column in proposed_stations
 
@@ -353,7 +340,6 @@ query <- paste0("
                 add column workpop_1min int8
                 ")
 getQuery(con, query)
-
 
 query <- paste0(
   "
@@ -400,7 +386,6 @@ query <- paste0("
                 ")
 getQuery(con, query)
 
-
 for (crscode in stations$crscode) {
   if (isolation) {
     prweighted_pop <-
@@ -410,8 +395,8 @@ for (crscode in stations$crscode) {
       sdr_calculate_prweighted_population(crscode, "concurrent")
 
   }
-  # update model.proposed_stations table
 
+  # update model.proposed_stations table
   query <- paste0(
     "
     update model.proposed_stations set prw_pop = ",
@@ -501,7 +486,7 @@ query <- paste0(
   update model.proposed_stations a set forecast_base = tmp.forecast_base from tmp
   where a.id = tmp.id;
   "
-  )
+)
 getQuery(con, query)
 
 # regional-based uplift forecast
@@ -523,16 +508,18 @@ getQuery(con, query)
 
 # Abstraction analysis----------------------------------------------------------
 
-# only process if abstraction analysis is required.
-# if unique value of abstract column is not a character then there are no abstraction stations
-# care needed, depends on the input file, assumes empty in this position of delimited file.
+# Only process if abstraction analysis is required.
+# If unique value of abstract column is not a character then there are no
+# abstraction stations. Depends on the input file, assumes empty in this
+# position of the delimited file!
 
 if (!is.character(unique(stations$abstract))) {
-  # For some components of the analysis we only need to consider unique stations
-  # where abstraction analysis is required across all the proposed stations, so
-  # lets get a vector of those
+  # For before analysis we only need to consider unique crscodes (from all
+  # proposed stations) where abstraction analysis is required.
+  # So lets get a vector of those
   abs_stations <- unique(unlist(strsplit(stations$abstract, ",")))
 
+  # Get easting an northings for these stations
   query <- paste0(
     "
     select crscode, easting || ',' || northing as location from data.stations where
@@ -540,10 +527,10 @@ if (!is.character(unique(stations$abstract))) {
     paste ("'", abs_stations, "'", sep = "", collapse = ",") ,
     ")
     "
-    )
+  )
   abs_stations <- getQuery(con, query)
 
-  # create before choicesets for each unique abstraction station
+  # create the before choicesets and probability table for each unique abstraction station
 
   for (crscode in abs_stations$crscode) {
     # generate the choiceset for that crs
@@ -553,7 +540,7 @@ if (!is.character(unique(stations$abstract))) {
     # Generate probability table
     sdr_generate_probability_table(choicesets, paste0(tolower(crscode), "_before_abs"))
 
-    # No frequency group adustments are needed for the before situation.
+    # No frequency group adustments are probably needed for the before situation.
     # Is this valid? I think so. Confirm.
 
     # calculate probabilities
@@ -569,9 +556,9 @@ if (!is.character(unique(stations$abstract))) {
 
   }
 
-  # create after choicesets - depends on whether isolation or concurrent method
+  # Create the after choicesets - depends on whether isolation or concurrent method
 
-  # for isolation we loop through each proposed station and then use a nested loop for
+  # For isolation we loop through each proposed station and then use a nested loop for
   # each of the stations where abstraction analysis is required
 
   if (isolation) {
@@ -626,11 +613,10 @@ if (!is.character(unique(stations$abstract))) {
       }
     }
   } else {
-    # Concurrent method
 
-    # Abstraction entry MUST be same for all proposed stations when submitted, so we
-    # just need to get the entry for the first row and loop through each of the
-    # requested abstraction analysis stations.
+    # For the concurrent method, abstraction entry MUST be same for all proposed
+    # stations when submitted, so we just need to get the entry for the first row
+    # and loop through each of the requested abstraction analysis stations.
 
     for (abs_crscode in unlist(strsplit(stations$abstract[1], ","))) {
       # for each abs_crscode we pass all the proposed stations to the function
@@ -645,10 +631,10 @@ if (!is.character(unique(stations$abstract))) {
       sdr_generate_probability_table(choicesets, paste0(tolower(abs_crscode), "_after_abs_concurrent"))
 
 
-      # make frequency group adjustments if required
-      # must only be a single identical frequency group for all stations under
-      # concurrent treatment.
-      # So we just check the first row for the group name and process once
+      # Make frequency group adjustments if required.
+      # Must only be a single identical frequency group for all stations under
+      # concurrent treatment. So we just check the first row for the group name
+      # and process once
 
       if (!is.na(stations$freqgrp[1])) {
         df <-
