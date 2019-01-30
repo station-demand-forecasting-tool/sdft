@@ -57,9 +57,8 @@
 #' @export
 sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
 
-  # Set the station crs codes that will be used for the 60 minute service area
-  # used to identify relevant postcodes. This will be the content of crs unless
-  # abs_crs is specified.
+  # Set which station the set of postcode choicesets is required for
+  # This will be the content of crs, or abs_crs if it is specified.
   if (is.null(abs_crs)) {
     pc_crs = crs
   } else {
@@ -261,6 +260,13 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
 
   } # end foreach postcode parallel processing
 
+
+  # remove rows for any postcodes where none of the crscodes are in the choiceset
+
+  df <- df %>%
+    dplyr::group_by(postcode) %>%
+    dplyr::filter(any(crscode %in% pc_crs))
+  df <- dplyr::ungroup(df)
 
   return(df)
 
