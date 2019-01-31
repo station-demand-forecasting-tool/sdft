@@ -8,11 +8,14 @@ library(keyring)
 library(RPostgreSQL)
 
 
-# testing?
+# During testing set this variable to TRUE. This produces fake 60-minute
+# proposed station service areas which are actually only 5-minute service areas.
 
 testing <- TRUE
 
-# set up database connection
+# Set up database connection.
+# Using keyring package for storing database password in Windows credential store
+# to avoid exposing on GitHub. Amend as appropriate.
 
 drv <- dbDriver("PostgreSQL")
 con <-
@@ -24,7 +27,9 @@ con <-
     dbname = "dafni"
   )
 
-# set up parallel processing
+# Set up parallel processing
+# Note this is only currently used in the sdr_generate_choicesets() function in
+# the foreach loop. Number of clusters is total available cores less two.
 
 cl <- makeCluster(detectCores() - 2)
 registerDoParallel(cl)
