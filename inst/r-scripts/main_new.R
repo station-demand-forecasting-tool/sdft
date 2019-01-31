@@ -278,8 +278,6 @@ sdr_create_service_areas(
 }
 
 
-
-
 # Create 1 minute service area - used to identify number of jobs within 1 minute
 # of station
 
@@ -287,7 +285,7 @@ sdr_create_service_areas(
   df = stations,
   schema = "model",
   table = "proposed_stations",
-  sa = c(5),
+  sa = c(1),
   cost = "time",
   target = 0.9
 )
