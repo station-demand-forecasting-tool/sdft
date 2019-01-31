@@ -7,6 +7,11 @@ library(doParallel)
 library(keyring)
 library(RPostgreSQL)
 
+
+# testing?
+
+testing <- TRUE
+
 # set up database connection
 
 drv <- dbDriver("PostgreSQL")
@@ -239,6 +244,25 @@ sdr_create_service_areas(
   cost = "len"
 )
 
+
+if (testing) {
+
+  sdr_create_service_areas(
+    df = stations,
+    schema = "model",
+    table = "proposed_stations",
+    sa = c(5),
+    cost = "time",
+    target = 0.9
+  )
+
+  query <- paste0("
+                alter table model.proposed_stations rename column service_area_5mins to service_area_60mins;
+                  ")
+  getQuery(con, query)
+
+} else {
+
 # Create 60 minute service area - used to identify postcode centroids to be
 # considered for inclusion in model
 
@@ -251,6 +275,11 @@ sdr_create_service_areas(
   target = 0.9
 )
 
+}
+
+
+
+
 # Create 1 minute service area - used to identify number of jobs within 1 minute
 # of station
 
@@ -258,10 +287,12 @@ sdr_create_service_areas(
   df = stations,
   schema = "model",
   table = "proposed_stations",
-  sa = c(1),
+  sa = c(5),
   cost = "time",
   target = 0.9
 )
+
+
 
 
 # Generate probability tables---------------------------------------------------
@@ -537,10 +568,13 @@ if (!is.character(unique(stations$abstract))) {
     id serial,
     proposed text,
     at_risk text,
-    prwpop_before integer,
-    prwpop_after integer,
-    change integer,
-    pc_change float
+    prwpop_before int,
+    prwpop_after int,
+    change real,
+    pc_change real,
+    entsexits1718 real,
+    adj_trips real,
+    trips_change real
   )"
   )
   getQuery(con, query)
@@ -572,6 +606,13 @@ if (!is.character(unique(stations$abstract))) {
     }
   }
 
+  # populate with entsexist1718
+  # how to handle this going forward?
+
+  query <- paste0(
+    ""
+  )
+  getQuery(con, query)
 
   # create the before choicesets and probability table for each unique abstraction station
 
@@ -664,8 +705,12 @@ if (!is.character(unique(stations$abstract))) {
         # update abstraction_results table
 
         query <- paste0(
-          "update model.abstraction_results set prwpop_after = ", prweighted_pop_after,
-          " where proposed = '", crscode, "' and at_risk = '", abs_crscode, "'"
+          "update model.abstraction_results
+          set prwpop_after = ", prweighted_pop_after,
+          ",
+          change = prwpop_after - prwpop_before,
+          pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
+          where proposed = '", crscode, "' and at_risk = '", abs_crscode, "'"
         )
         getQuery(con, query)
 
@@ -727,4 +772,10 @@ if (!is.character(unique(stations$abstract))) {
 
     }
   }
+
+  # Calculate actual change and percent change between before and after situation
+  # Also need to add trips data to the abstraction_results table (above when created)
+
 } #end abstraction analysis
+
+stopCluster(cl)
