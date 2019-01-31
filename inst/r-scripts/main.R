@@ -318,7 +318,7 @@ if (isolation) {
   # to separate out generation of the choice sets (and the service areas above) from
   # the proposed_stations table.
 
-  # get df of unique station name
+  # get df of unique station names
   unique_stations <- stations %>% distinct(name, .keep_all = FALSE)
 
   for (name in unique_stations$name) {
