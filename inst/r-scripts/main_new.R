@@ -117,6 +117,11 @@ query <- paste0("
                 ")
 getQuery(con, query)
 
+query <- paste0("
+                alter table model.proposed_stations add primary key (id);
+                ")
+getQuery(con, query)
+
 # create geometry column in proposed_stations table
 
 query <- paste0(
@@ -156,6 +161,11 @@ getQuery(con, query)
 query <- paste0("
                 alter table model.exogenous_input alter column id type int
                 using id::integer;
+                ")
+getQuery(con, query)
+
+query <- paste0("
+                alter table model.exogenous_input add primary key (id);
                 ")
 getQuery(con, query)
 
@@ -246,7 +256,6 @@ sdr_create_service_areas(
 
 
 if (testing) {
-
   sdr_create_service_areas(
     df = stations,
     schema = "model",
@@ -256,24 +265,25 @@ if (testing) {
     target = 0.9
   )
 
-  query <- paste0("
-                alter table model.proposed_stations rename column service_area_5mins to service_area_60mins;
-                  ")
+  query <- paste0(
+    "
+    alter table model.proposed_stations rename column service_area_5mins to service_area_60mins;
+    "
+  )
   getQuery(con, query)
 
 } else {
+  # Create 60 minute service area - used to identify postcode centroids to be
+  # considered for inclusion in model
 
-# Create 60 minute service area - used to identify postcode centroids to be
-# considered for inclusion in model
-
-sdr_create_service_areas(
-  df = stations,
-  schema = "model",
-  table = "proposed_stations",
-  sa = c(60),
-  cost = "time",
-  target = 0.9
-)
+  sdr_create_service_areas(
+    df = stations,
+    schema = "model",
+    table = "proposed_stations",
+    sa = c(60),
+    cost = "time",
+    target = 0.9
+  )
 
 }
 
@@ -323,7 +333,6 @@ if (isolation) {
 
       # make frequency group adjustments if required
       if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
-
         df <-
           data.frame(fgrp = config[config$group_id == stations$freqgrp[stations$crscode == crscode],
                                    "group_crs"], stringsAsFactors = FALSE)
@@ -515,7 +524,7 @@ query <- paste0(
   update model.proposed_stations a set forecast_base = tmp.forecast_base from tmp
   where a.id = tmp.id;
   "
-)
+  )
 getQuery(con, query)
 
 # regional-based uplift forecast
@@ -542,7 +551,7 @@ getQuery(con, query)
 # abstraction stations. Depends on the input file, assumes empty in this
 # position of the delimited file!
 
-if (!is.character(unique(stations$abstract))) {
+if (is.character(unique(stations$abstract))) {
   # For before analysis we only need to consider unique crscodes (from all
   # proposed stations) where abstraction analysis is required.
   # So lets get a vector of those
@@ -556,14 +565,14 @@ if (!is.character(unique(stations$abstract))) {
     paste ("'", abs_stations, "'", sep = "", collapse = ",") ,
     ")
     "
-  )
+    )
   abs_stations <- getQuery(con, query)
 
   # Create the abstraction results table
 
   query <- paste0(
     "create table model.abstraction_results (
-    id serial,
+    id serial primary key,
     proposed text,
     at_risk text,
     prwpop_before int,
@@ -604,13 +613,16 @@ if (!is.character(unique(stations$abstract))) {
     }
   }
 
-  # populate with entsexist1718
-  # how to handle this going forward?
+  # populate with entsexist1718 - how to handle this going forward?
 
   query <- paste0(
-    ""
+    "	update model.abstraction_results a
+    set entsexits1718 = b.entsexits1718
+    from data.stations b
+    where  a.at_risk = b.crscode	"
   )
   getQuery(con, query)
+
 
   # create the before choicesets and probability table for each unique abstraction station
 
@@ -639,8 +651,11 @@ if (!is.character(unique(stations$abstract))) {
     # update abstraction_results table for any where at_risk == crscode
 
     query <- paste0(
-      "update model.abstraction_results set prwpop_before = ", prweighted_pop_before,
-      " where at_risk = '", crscode, "'"
+      "update model.abstraction_results set prwpop_before = ",
+      prweighted_pop_before,
+      " where at_risk = '",
+      crscode,
+      "'"
     )
     getQuery(con, query)
 
@@ -704,18 +719,22 @@ if (!is.character(unique(stations$abstract))) {
 
         query <- paste0(
           "update model.abstraction_results
-          set prwpop_after = ", prweighted_pop_after,
+          set prwpop_after = ",
+          prweighted_pop_after,
           ",
           change = prwpop_after - prwpop_before,
           pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
-          where proposed = '", crscode, "' and at_risk = '", abs_crscode, "'"
+          where proposed = '",
+          crscode,
+          "' and at_risk = '",
+          abs_crscode,
+          "'"
         )
         getQuery(con, query)
 
       }
     }
   } else {
-
     # For the concurrent method, abstraction entry MUST be same for all proposed
     # stations when submitted, so we just need to get the entry for the first row
     # and loop through each of the requested abstraction analysis stations.
@@ -762,18 +781,36 @@ if (!is.character(unique(stations$abstract))) {
       # update abstraction_results table
 
       query <- paste0(
-        "update model.abstraction_results set prwpop_after = ", prweighted_pop_concurrent,
-        " where proposed = 'concurrent' and at_risk = '", abs_crscode, "'"
+        "update model.abstraction_results set prwpop_after = ",
+        prweighted_pop_concurrent,
+        " , change = prwpop_after - prwpop_before,
+        pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
+        where proposed = 'concurrent' and at_risk = '",
+        abs_crscode,
+        "'"
       )
       getQuery(con, query)
 
 
     }
-  }
+  } # end concurrent method
 
   # Calculate actual change and percent change between before and after situation
-  # Also need to add trips data to the abstraction_results table (above when created)
+
+  query <- paste0(
+    "update model.abstraction_results
+    set adj_trips = round(entsexits1718 + ((pc_change / 100) * entsexits1718))"
+  )
+  getQuery(con, query)
+
+  query <- paste0("update model.abstraction_results
+                  set trips_change = adj_trips - entsexits1718")
+  getQuery(con, query)
 
 } #end abstraction analysis
+
+
+# Closing actions---------------------------------------------------------------
+
 
 stopCluster(cl)

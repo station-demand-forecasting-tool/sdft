@@ -156,6 +156,9 @@ for (i in service_areas_metres) {
 # service areas required in time - for abstraction
 service_areas_minutes <- c(60)
 
+# testing only service areas required in time - for abstraction
+# service_areas_minutes <- c(5)
+
 # for time set the buffer to 105000. The fastest road speed
 # in roadlinks is 65mph (105 kmph) so thereotical maximum distance
 # that can be acheived in one hour is 105km
