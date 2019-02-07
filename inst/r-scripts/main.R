@@ -314,7 +314,7 @@ if (isolation) {
   # As multiple stations with the same choice set can be input for sensitivity
   # testing, we only want to generate the choice sets once for each unique station
   # as this is a long and processor intensive function. This is a bit of a
-  # workaround to acheieve that. May be cleaner with a re-code of various elements
+  # workaround to achieve that. May be cleaner with a re-code of various elements
   # to separate out generation of the choice sets (and the service areas above) from
   # the proposed_stations table.
 
@@ -451,6 +451,28 @@ for (crscode in stations$crscode) {
   getQuery(con, query)
 
 }
+
+
+# Create GeoJSON catchment maps-------------------------------------------------
+
+
+# create column in proposed_stations table
+
+query <- paste0("
+                alter table model.proposed_stations
+                add column catchment json
+                ")
+getQuery(con, query)
+
+
+for (crscode in stations$crscode) {
+  if (isolation) {
+    sdr_create_json_catchment(crscode, crscode)
+  } else {
+    sdr_create_json_catchment(crscode, "concurrent")
+  }
+}
+
 
 
 # Generate forecasts------------------------------------------------------------
