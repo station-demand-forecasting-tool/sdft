@@ -34,10 +34,9 @@ sdr_create_json_catchment <- function(crs, tablesuffix) {
     LEFT JOIN data.pc_pop_2011 c ON a.postcode = c.postcode
     where a.crscode = '",
     crs,
-    "' and st_within(c.geom, (select service_area_60mins from model.proposed_stations where crscode = '", crs, "'))
+    "' and a.te19_prob > 0.01 and st_within(c.geom, (select service_area_60mins from model.proposed_stations where crscode = '", crs, "'))
     ) as f
-    ) as fc )
-    "
+    ) as fc ) where crscode = '", crs, "'"
   )
   getQuery(con, query)
 }
