@@ -2,7 +2,8 @@
 #'
 #' Creates a GeoJSON probabilistic catchment for a station. Includes a spatial
 #' query to check that the postcode is within the 60 minute service area of the
-#' station (important for "concurrent" mode).dev
+#' station (important for "concurrent" mode). Only includes postcodes where the
+#' probability of the station being chosen is > 1\%.
 #'
 #' @param crs crscode of the station
 #' @param tablesuffix The suffix of the probability table - either crscode
