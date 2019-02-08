@@ -4,17 +4,32 @@
 \alias{sdr_create_json_catchment}
 \title{Creates a GeoJSON probabilistic catchment for a station}
 \usage{
-sdr_create_json_catchment(crs, tablesuffix)
+sdr_create_json_catchment(crs, tablesuffix, abs_crs = NULL,
+  cutoff = 0.01)
 }
 \arguments{
-\item{crs}{crscode of the station}
+\item{crs}{Character. The crscode of the station the catchment is for.}
 
-\item{tablesuffix}{The suffix of the probability table - either crscode
-(isolation) or 'concurrent' (concurrent) is expected.}
+\item{tablesuffix}{Character. The suffix of the probability table.}
+
+\item{abs_crs}{Character. The crscode of a proposed station (or "concurrent" if
+using concurrent mode). If specified then either a
+before or after catchment is generated (depending on value of \code{tablesuffix}).}
+
+\item{cutoff}{Numeric. Defines the threshold probability to exclude a postcode from
+the catchment. Default is 0.01 (i.e. any postcodes with a probability greater than 0.01
+for the station defined in \code{crs} will be included in the catchment)}
 }
 \description{
 Creates a GeoJSON probabilistic catchment for a station. Includes a spatial
-query to check that the postcode is within the 60 minute service area of the
-station (important for "concurrent" mode). Only includes postcodes where the
-probability of the station being chosen is > 1\%.
+query to check that any candidate postcodes are within the 60 minute service area of the
+station (only important for "concurrent" mode).
+}
+\details{
+If \code{abs_crs} is \code{NULL} then the catchment is
+assumed to be for a proposed station and the table model.proposed_stations is
+updated. If a value for \code{abs_crs} (a proposed station) is provided then the catchment is
+assumed to relate to an abstraction analysis and is generated for either the before or
+after situation depending on the value of \code{tablesuffix} and the table model.abstraction_analysis is
+updated.
 }

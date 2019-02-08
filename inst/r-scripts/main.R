@@ -608,7 +608,9 @@ if (is.character(unique(stations$abstract))) {
     pc_change real,
     entsexits1718 real,
     adj_trips real,
-    trips_change real
+    trips_change real,
+    catchment_before json,
+    catchment_after json
   )"
   )
   getQuery(con, query)
@@ -833,6 +835,37 @@ if (is.character(unique(stations$abstract))) {
   query <- paste0("update model.abstraction_results
                   set trips_change = adj_trips - entsexits1718")
   getQuery(con, query)
+
+
+  # generate before and after GeoJSON catchments
+
+  # Probably should rationalise this as only need to generate before catchment once
+  # for each unique abstraction station. See above.
+
+  if (isolation) {
+    for (crscode in stations$crscode) {
+      for (abs_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
+      {
+        sdr_create_json_catchment(abs_crscode,
+                                  paste0(tolower(abs_crscode), "_before_abs"), crscode)
+        sdr_create_json_catchment(abs_crscode,
+                                  paste0(tolower(abs_crscode), "_after_abs_", crscode), crscode)
+      }
+    }
+  } else {
+    for (crscode in stations$crscode) {
+      for (abs_crscode in unlist(strsplit(stations$abstract[1], ","))) {
+        sdr_create_json_catchment(abs_crscode,
+                                  paste0(tolower(abs_crscode), "_before_abs"),
+                                  "concurrent")
+        sdr_create_json_catchment(abs_crscode,
+                                  paste0(tolower(abs_crscode), "_after_abs_concurrent"),
+                                  "concurrent")
+      }
+
+    }
+  }
+
 
 } #end abstraction analysis
 
