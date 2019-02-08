@@ -749,9 +749,15 @@ if (is.character(unique(stations$abstract))) {
         query <- paste0(
           "update model.abstraction_results
           set prwpop_after = ",
-          prweighted_pop_after,
-          ",
-          change = prwpop_after - prwpop_before,
+          prweighted_pop_after, " where proposed = '",
+          crscode,
+          "' and at_risk = '",
+          abs_crscode, "'")
+        getQuery(con, query)
+
+        query <- paste0(
+          "update model.abstraction_results
+          set change = prwpop_after - prwpop_before,
           pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
           where proposed = '",
           crscode,
@@ -810,11 +816,17 @@ if (is.character(unique(stations$abstract))) {
       # update abstraction_results table
 
       query <- paste0(
-        "update model.abstraction_results set prwpop_after = ",
-        prweighted_pop_concurrent,
-        " , change = prwpop_after - prwpop_before,
-        pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
-        where proposed = 'concurrent' and at_risk = '",
+        "update model.abstraction_results
+          set prwpop_after = ",
+        prweighted_pop_concurrent, " where proposed = 'concurrent' and at_risk = '",
+        abs_crscode, "'")
+      getQuery(con, query)
+
+      query <- paste0(
+        "update model.abstraction_results
+          set change = prwpop_after - prwpop_before,
+          pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
+          where proposed = 'concurrent' and at_risk = '",
         abs_crscode,
         "'"
       )
