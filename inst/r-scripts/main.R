@@ -123,7 +123,8 @@ query <- paste0("
 getQuery(con, query)
 
 query <- paste0("
-                alter table model.proposed_stations add primary key (id);
+                alter table model.proposed_stations add primary key (id)
+;
                 ")
 getQuery(con, query)
 
@@ -342,12 +343,12 @@ if (isolation) {
           data.frame(fgrp = config[config$group_id == stations$freqgrp[stations$crscode == crscode],
                                    "group_crs"], stringsAsFactors = FALSE)
 
-        sdr_frequency_group_adjustment(df, crscode)
+        sdr_frequency_group_adjustment(df, tolower(crscode))
 
       } # end if freqgrp
 
       # calculate the probabilities
-      sdr_calculate_probabilities(crscode)
+      sdr_calculate_probabilities(tolower(crscode))
     }
   }
 } else {
@@ -432,7 +433,7 @@ getQuery(con, query)
 for (crscode in stations$crscode) {
   if (isolation) {
     prweighted_pop <-
-      sdr_calculate_prweighted_population(crscode, crscode)
+      sdr_calculate_prweighted_population(crscode, tolower(crscode))
   } else {
     prweighted_pop <-
       sdr_calculate_prweighted_population(crscode, "concurrent")
@@ -467,9 +468,9 @@ getQuery(con, query)
 
 for (crscode in stations$crscode) {
   if (isolation) {
-    sdr_create_json_catchment(crscode, crscode)
+    sdr_create_json_catchment("proposed", crscode, tolower(crscode))
   } else {
-    sdr_create_json_catchment(crscode, "concurrent")
+    sdr_create_json_catchment("proposed", crscode, "concurrent")
   }
 }
 
@@ -749,10 +750,13 @@ if (is.character(unique(stations$abstract))) {
         query <- paste0(
           "update model.abstraction_results
           set prwpop_after = ",
-          prweighted_pop_after, " where proposed = '",
+          prweighted_pop_after,
+          " where proposed = '",
           crscode,
           "' and at_risk = '",
-          abs_crscode, "'")
+          abs_crscode,
+          "'"
+        )
         getQuery(con, query)
 
         query <- paste0(
@@ -817,16 +821,19 @@ if (is.character(unique(stations$abstract))) {
 
       query <- paste0(
         "update model.abstraction_results
-          set prwpop_after = ",
-        prweighted_pop_concurrent, " where proposed = 'concurrent' and at_risk = '",
-        abs_crscode, "'")
+        set prwpop_after = ",
+        prweighted_pop_concurrent,
+        " where proposed = 'concurrent' and at_risk = '",
+        abs_crscode,
+        "'"
+      )
       getQuery(con, query)
 
       query <- paste0(
         "update model.abstraction_results
-          set change = prwpop_after - prwpop_before,
-          pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
-          where proposed = 'concurrent' and at_risk = '",
+        set change = prwpop_after - prwpop_before,
+        pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
+        where proposed = 'concurrent' and at_risk = '",
         abs_crscode,
         "'"
       )
@@ -849,34 +856,56 @@ if (is.character(unique(stations$abstract))) {
   getQuery(con, query)
 
 
-  # generate before and after GeoJSON catchments
-
-  # Probably should rationalise this as only need to generate before catchment once
-  # for each unique abstraction station. See above.
+  # Generate before and after GeoJSON catchments
 
   if (isolation) {
+    # generate before catchment - only need to run for unique abstraction stations.
+    # These are in abs_stations
+
+    for (crscode in abs_stations$crscode) {
+      sdr_create_json_catchment("abstraction",
+                                crscode,
+                                paste0(tolower(crscode), "_before_abs"))
+    }
+
+    # generate after catchment
+
     for (crscode in stations$crscode) {
-      for (abs_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
+      for (atrisk_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
       {
-        sdr_create_json_catchment(abs_crscode,
-                                  paste0(tolower(abs_crscode), "_before_abs"), crscode)
-        sdr_create_json_catchment(abs_crscode,
-                                  paste0(tolower(abs_crscode), "_after_abs_", crscode), crscode)
+        sdr_create_json_catchment(
+          "abstraction",
+          atrisk_crscode,
+          paste0(tolower(atrisk_crscode), "_after_abs_", tolower(crscode)),
+          crscode
+        )
       }
     }
   } else {
+    # concurrent
+    # generate before catchment - only need to run for unique abstraction stations.
+    # These are in abs_stations
+
+    for (crscode in abs_stations$crscode) {
+      sdr_create_json_catchment("abstraction",
+                                crscode,
+                                paste0(tolower(crscode), "_before_abs"))
+    }
+
+    # generate after catchment
+
     for (crscode in stations$crscode) {
-      for (abs_crscode in unlist(strsplit(stations$abstract[1], ","))) {
-        sdr_create_json_catchment(abs_crscode,
-                                  paste0(tolower(abs_crscode), "_before_abs"),
-                                  "concurrent")
-        sdr_create_json_catchment(abs_crscode,
-                                  paste0(tolower(abs_crscode), "_after_abs_concurrent"),
-                                  "concurrent")
+      for (atrisk_crscode in unlist(strsplit(stations$abstract[1], ","))) {
+        sdr_create_json_catchment(
+          "abstraction",
+          atrisk_crscode,
+          paste0(tolower(atrisk_crscode), "_after_abs_concurrent"),
+          "concurrent"
+        )
       }
 
     }
-  }
+  } # end generate before and after GeoJSON catchments.
 
 
 } #end abstraction analysis
