@@ -124,7 +124,8 @@ getQuery(con, query)
 
 query <- paste0("
                 alter table model.proposed_stations add primary key (id)
-;
+
+
                 ")
 getQuery(con, query)
 
@@ -876,7 +877,11 @@ if (is.character(unique(stations$abstract))) {
         sdr_create_json_catchment(
           "abstraction",
           atrisk_crscode,
-          paste0(tolower(atrisk_crscode), "_after_abs_", tolower(crscode)),
+          paste0(
+            tolower(atrisk_crscode),
+            "_after_abs_",
+            tolower(crscode)
+          ),
           crscode
         )
       }
