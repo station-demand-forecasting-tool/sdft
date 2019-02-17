@@ -13,7 +13,7 @@ library(RPostgreSQL)
 
 testing <- TRUE
 
-# Set up database connection.
+# Set up a database connection.
 # Using keyring package for storing database password in Windows credential store
 # to avoid exposing on GitHub. Amend as appropriate.
 
