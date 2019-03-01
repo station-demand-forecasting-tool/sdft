@@ -4,9 +4,11 @@
 \alias{sdr_calculate_probabilities}
 \title{Calculates probabilities for postcode choicesets}
 \usage{
-sdr_calculate_probabilities(tablesuffix)
+sdr_calculate_probabilities(schema, tablesuffix)
 }
 \arguments{
+\item{schema}{A text string for the database schema name.}
+
 \item{tablesuffix}{The suffix of the probability table - either crscode
 (isolation) or 'concurrent' (concurrent) is expected.}
 }

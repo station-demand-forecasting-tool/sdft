@@ -5,18 +5,18 @@
 #' service area geometry is written to the specified database table in the
 #' specified database schema.
 #'
+#' @param schema A text string for the database schema name.
 #' @param df A dataframe with a column called "location" which has easting and
 #' northing of the station location.
 #' @param sa A vector of integer values for the required service areas. Should
 #' be in metres when cost is distance and minutes when cost is time.
-#' @param schema A text string for the database schema name.
 #' @param table A text string for the database table name.
 #' @param cost A text string, either "len" for a distance-based service area or
 #' "time" for a time-based service area. Default is "len".
 #' @param target The target percent of area of convex hull that ST_ConvexHull
 #' will try to approach before giving up or exiting. Default is 0.9.
 #' @export
-sdr_create_service_areas <- function(df, sa, schema, table, cost = "len", target = 0.9) {
+sdr_create_service_areas <- function(schema, df, sa, table, cost = "len", target = 0.9) {
 
 # set number of records
 total_stations <- nrow(df)

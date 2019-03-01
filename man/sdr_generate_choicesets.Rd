@@ -4,9 +4,11 @@
 \alias{sdr_generate_choicesets}
 \title{Generates a choice set of ten nearest stations for postcodes}
 \usage{
-sdr_generate_choicesets(crs, existing = FALSE, abs_crs = NULL)
+sdr_generate_choicesets(schema, crs, existing = FALSE, abs_crs = NULL)
 }
 \arguments{
+\item{schema}{A text string for the database schema name.}
+
 \item{crs}{A character vector of the crscode(s) of the station(s)
 for which a set of postcode choicesets is required.}
 
@@ -29,7 +31,7 @@ postcodes. The function is also able to generate before and after choicesets for
 \details{
 If existing is set to \code{FALSE} then the crscodes in \code{crs} must be proposed
 stations. The function will obtain the 60 minute service area geometry from the
-model.proposed_stations table. If there is more than one crscode in \code{crs} then
+modelschema.proposed_stations table. If there is more than one crscode in \code{crs} then
 st_union will be applied to the individual service area geometries to create a
 single merged 60 minute service area (this is used when the concurrent mode has
 been selected for the model run).
@@ -55,15 +57,15 @@ located in the openroads schema: \code{create_pgr_vnodes},
 \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints}, and
 \code{sdr_pc_station_withpoints_nobbox}.
 
-Two views are created for use by these functions. The first is model.centroidnodes
+Two views are created for use by these functions. The first is modelschema.centroidnodes
 which is a union of virtual nodes for the proposed stations (which are created in the query)
-and virtual nodes for existing stations. The second is model.stations which is a union of
-stations from data.stations and model.proposed_stations containing the distance-based
+and virtual nodes for existing stations. The second is modelschema.stations which is a union of
+stations from data.stations and modelschema.proposed_stations containing the distance-based
 service areas used in identfying the nearest 10 stations to each postcode.
 
 For maximum flexibility to also use this function for abstraction analysis
 without code repetition, it should be noted that the union queries are
 used even when \code{existing} is set to \code{TRUE} and the crscode in \code{crs} is
 an existing station. In this case there will be no match with the stations in
-model.proposed_stations and that part of the union query will simply return null.
+modelschema.proposed_stations and that part of the union query will simply return null.
 }

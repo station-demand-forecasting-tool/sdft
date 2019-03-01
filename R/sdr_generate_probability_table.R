@@ -2,17 +2,17 @@
 #'
 #' Creates and populates the probability table of a station (isolation)
 #' or stations (concurrent) with the variables required to apply
-#' the station choice model. The variables are drawn from the model.proposed_stations
+#' the station choice model. The variables are drawn from the modelschema.proposed_stations
 #' and data.stations tables.
-#'
+#' @param schema A text string for the database schema name.
 #' @param df A dataframe containing the choicesets.
 #' @param tablesuffix The suffix of the probability table - either crscode
 #' (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
-sdr_generate_probability_table <- function(df, tablesuffix) {
+sdr_generate_probability_table <- function(schema, df, tablesuffix) {
 
   query <- paste0(
-    "create table model.probability_",
+    "create table ", schema, ".probability_",
     tablesuffix,
     "
     (
@@ -38,7 +38,7 @@ sdr_generate_probability_table <- function(df, tablesuffix) {
   # write the table for this crscode
   RPostgreSQL::dbWriteTable(
     conn = con,
-    name = c('model', paste0("probability_",
+    name = c(schema, paste0("probability_",
                              tablesuffix)),
     df,
     append =
@@ -55,9 +55,9 @@ sdr_generate_probability_table <- function(df, tablesuffix) {
     from data.stations
     union all
     select crscode, freq as frequency, carsp as carspaces, category, ticketm as ticketmachine, busint as busservices, cctv
-    from model.proposed_stations
+    from ", schema, ".proposed_stations
     )
-    UPDATE model.probability_",
+    UPDATE ", schema, ".probability_",
     tolower(tablesuffix),
     " as a SET
     sqr_dist = round(cast(sqrt(distance/1000) as numeric),4),

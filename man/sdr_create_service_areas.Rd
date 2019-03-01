@@ -4,17 +4,17 @@
 \alias{sdr_create_service_areas}
 \title{Creates a distance or time based network service area around stations}
 \usage{
-sdr_create_service_areas(df, sa, schema, table, cost = "len",
+sdr_create_service_areas(schema, df, sa, table, cost = "len",
   target = 0.9)
 }
 \arguments{
+\item{schema}{A text string for the database schema name.}
+
 \item{df}{A dataframe with a column called "location" which has easting and
 northing of the station location.}
 
 \item{sa}{A vector of integer values for the required service areas. Should
 be in metres when cost is distance and minutes when cost is time.}
-
-\item{schema}{A text string for the database schema name.}
 
 \item{table}{A text string for the database table name.}
 

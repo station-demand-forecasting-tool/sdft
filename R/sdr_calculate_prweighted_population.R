@@ -29,11 +29,12 @@
 #' is not present in the probability table and it will not in those circumstances contribute to the sum.
 #' As in SQL NULL times anything is NULL.
 #'
+#' @param schema A text string for the database schema name.
 #' @param crs The crscode of the station.
 #' @param tablesuffix The suffix of the probability table - either crscode
 #' (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
-sdr_calculate_prweighted_population <- function(crs, tablesuffix) {
+sdr_calculate_prweighted_population <- function(schema, crs, tablesuffix) {
 
 
   if (tablesuffix == "concurrent") {
@@ -41,21 +42,21 @@ sdr_calculate_prweighted_population <- function(crs, tablesuffix) {
       "
       with nw_pop as(
       select
-      sum(a.te19_prob * b.population) from model.probability_",
+      sum(a.te19_prob * b.population) from ", schema, ".probability_",
       tolower(tablesuffix),
       " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
-      left join model.proposed_stations as c on a.crscode = c.crscode
+      left join ", schema, ".proposed_stations as c on a.crscode = c.crscode
       where a.crscode = '",
       crs,
       "' and a.distance <= 750 and st_within(b.geom, c.service_area_60mins)
       ), w_pop as (
       select
-      sum(a.te19_prob * b.population * power(((a.distance / 1000) +1), -1.5212)) from model.probability_",
+      sum(a.te19_prob * b.population * power(((a.distance / 1000) +1), -1.5212)) from ", schema, ".probability_",
       tolower(tablesuffix),
       " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
-      left join model.proposed_stations as c on a.crscode = c.crscode
+      left join ", schema, ".proposed_stations as c on a.crscode = c.crscode
       where a.crscode = '",
       crs,
       "' and a.distance > 750 and st_within(b.geom, c.service_area_60mins)
@@ -64,15 +65,15 @@ sdr_calculate_prweighted_population <- function(crs, tablesuffix) {
       case when b.distance <=750 then b.te19_prob * a.population
       when b.distance > 750 then b.te19_prob * a.population * power(((b.distance / 1000) +1), -1.5212)
       end)
-      from model.exogenous_input as a
-      left join model.probability_",
+      from ", schema, ".exogenous_input as a
+      left join ", schema, ".probability_",
       tolower(tablesuffix),
       " as b
       on a.centroid = b.postcode and b.crscode = '",
       crs,
       "'
       where type = 'population' or type = 'houses'
-      and st_within (a.geom, (select service_area_60mins from model.proposed_stations where crscode = '",
+      and st_within (a.geom, (select service_area_60mins from ", schema, ".proposed_stations where crscode = '",
       crs,
       "'))
       )
@@ -85,7 +86,7 @@ sdr_calculate_prweighted_population <- function(crs, tablesuffix) {
       "
       with nw_pop as(
       select
-      sum(a.te19_prob * b.population) from model.probability_",
+      sum(a.te19_prob * b.population) from ", schema, ".probability_",
       tolower(tablesuffix),
       " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
@@ -94,7 +95,7 @@ sdr_calculate_prweighted_population <- function(crs, tablesuffix) {
       "' and a.distance <= 750
       ), w_pop as (
       select
-      sum(a.te19_prob * b.population * power(((a.distance / 1000) +1), -1.5212)) from model.probability_",
+      sum(a.te19_prob * b.population * power(((a.distance / 1000) +1), -1.5212)) from ", schema, ".probability_",
       tolower(tablesuffix),
       " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
@@ -106,8 +107,8 @@ sdr_calculate_prweighted_population <- function(crs, tablesuffix) {
       case when b.distance <=750 then b.te19_prob * a.population
       when b.distance > 750 then b.te19_prob * a.population * power(((b.distance / 1000) +1), -1.5212)
       end)
-      from model.exogenous_input as a
-      left join model.probability_",
+      from ", schema, ".exogenous_input as a
+      left join ", schema, ".probability_",
       tolower(tablesuffix),
       " as b
       on a.centroid = b.postcode and b.crscode = '",

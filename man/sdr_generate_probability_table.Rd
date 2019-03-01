@@ -4,9 +4,11 @@
 \alias{sdr_generate_probability_table}
 \title{Creates and populates the probability table of a station}
 \usage{
-sdr_generate_probability_table(df, tablesuffix)
+sdr_generate_probability_table(schema, df, tablesuffix)
 }
 \arguments{
+\item{schema}{A text string for the database schema name.}
+
 \item{df}{A dataframe containing the choicesets.}
 
 \item{tablesuffix}{The suffix of the probability table - either crscode
@@ -15,6 +17,6 @@ sdr_generate_probability_table(df, tablesuffix)
 \description{
 Creates and populates the probability table of a station (isolation)
 or stations (concurrent) with the variables required to apply
-the station choice model. The variables are drawn from the model.proposed_stations
+the station choice model. The variables are drawn from the modelschema.proposed_stations
 and data.stations tables.
 }
