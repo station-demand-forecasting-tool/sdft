@@ -5,77 +5,208 @@ library(tidyr)
 library(foreach)
 library(doParallel)
 library(keyring)
-library(RPostgreSQL)
+library(RPostgres)
+library(DBI)
+library(futile.logger)
+library(checkmate)
 
-
+# set up logginf
+flog.appender(appender.file("sdr.log"))
+# set logging level
+flog.threshold(INFO)    # TRACE, DEBUG, INFO, WARN, ERROR, FATAL
 # During testing set this variable to TRUE. This produces fake 60-minute
 # proposed station service areas which are actually only 5-minute service areas.
 
 testing <- TRUE
 
+flog.info(paste0("Testing mode: ", testing))
+
 # Set up a database connection.
 # Using keyring package for storing database password in Windows credential store
 # to avoid exposing on GitHub. Amend as appropriate.
 
-drv <- dbDriver("PostgreSQL")
-con <-
-  dbConnect(
-    drv,
-    host = "localhost",
-    user = "postgres",
-    password = key_get("postgres"),
-    dbname = "dafni"
-  )
+tryCatch ({
+  con <-
+    dbConnect(
+      RPostgres::Postgres(),
+      dbname = "dafni",
+      host = "localhost",
+      user = "postgres",
+      password = key_get("postgres")
+    )
+},
+error = function(err) {
+  flog.fatal(gsub("[\r\n]", " ", err))
+  stop(err)
+},
+warning = function(warn) {
+  flog.warn(gsub("[\r\n]", " ", warn))
+},
+message = function(mes) {
+  flog.info(gsub("[\r\n]", " ", mes))
+})
+
 
 # Set up parallel processing
 # Note this is only currently used in the sdr_generate_choicesets() function in
 # the foreach loop. Number of clusters is total available cores less two.
 
+tryCatch({
 cl <- makeCluster(detectCores() - 2)
 registerDoParallel(cl)
+},
+error = function(err) {
+  flog.fatal(gsub("[\r\n]", " ", err))
+  stop(err)
+},
+warning = function(warn) {
+  flog.warn(gsub("[\r\n]", " ", warn))
+},
+message = function(mes) {
+  flog.info(gsub("[\r\n]", " ", mes))
+}
+)
 
-clusterEvalQ(cl, {
-  library(DBI)
-  library(RPostgreSQL)
-  library(keyring)
-  getQuery <- function(con, query) {
-    query <- gsub(pattern = '\\s' ,
-                  replacement = " ",
-                  x = query)
-    dbGetQuery(con, query)
-  }
-  drv <- dbDriver("PostgreSQL")
-  con <-
-    dbConnect(
-      drv,
-      host = "localhost",
-      user = "postgres",
-      password = key_get("postgres"),
-      dbname = "dafni"
-    )
-  NULL
+tryCatch({
+  clusterEvalQ(cl, {
+    library(DBI)
+    library(RPostgres)
+    library(keyring)
+    getQuery <- function(con, query) {
+      query <- gsub(pattern = '\\s' ,
+                    replacement = " ",
+                    x = query)
+      dbGetQuery(con, query)
+    }
+    drv <- dbDriver("Postgres")
+    con <-
+      dbConnect(
+        RPostgres::Postgres(),
+        host = "localhost",
+        user = "postgres",
+        password = key_get("postgres"),
+        dbname = "dafni"
+      )
+    NULL
+  })
+},
+error = function(err) {
+  flog.fatal(gsub("[\r\n]", " ", err))
+  stop(err)
+},
+warning = function(warn) {
+  flog.warn(gsub("[\r\n]", " ", warn))
+},
+message = function(mes) {
+  flog.warn(gsub("[\r\n]", " ", mes))
 })
+
 
 # Load configuration data-------------------------------------------------------
 
-config <-
+tryCatch(
+{config <-
   read.csv(file = "inst/example_input/config.csv",
            sep = ";",
            stringsAsFactors = FALSE)
+},
+error = function(err) {
+  flog.fatal(gsub("[\r\n]", " ", err))
+  stop(err)
+},
+warning = function(warn) {
+  flog.warn(gsub("[\r\n]", " ", warn))
+},
+message = function(mes) {
+  flog.warn(gsub("[\r\n]", " ", mes))
+}
+)
 
-isolation <- ifelse(config$method == "isolation", TRUE, FALSE)
+# check for valid mode
+if (config$method == "isolation") {
+  isolation <- TRUE
+} else if (config$method == "concurrent") {
+  isolation <- FALSE
+} else {
+  msg <- "Model method not valid, must be \"isolation\" or \"concurrent\""
+  flog.fatal(msg)
+  stop(msg)
+}
 
-schema <- config$job_id
+# set schema name to job_id (check begins with a-z - required by postgresql)
+if (grepl("[a-z]", substr(config$job_id, 1, 1), ignore.case = FALSE)) {
+  schema <- config$job_id
+} else {
+  msg <- "database schema name uses config$job_id, first character must be lowercase a-z"
+  flog.fatal(msg)
+  stop(msg)
+}
+
+flog.info("config.csv has been imported and checked")
+
 
 
 # Load station data-------------------------------------------------------------
 
 
-stations <-
-  read.csv(file = "inst/example_input/stations.csv",
-           sep = ";",
-           stringsAsFactors = FALSE)
+tryCatch(
+  {stations <-
+    read.csv(file = "inst/example_input/stations.csv",
+             sep = ";",
+             stringsAsFactors = FALSE)
+  },
+  error = function(err) {
+    flog.fatal(gsub("[\r\n]", " ", err))
+    stop(err)
+  },
+  warning = function(warn) {
+    flog.warn(gsub("[\r\n]", " ", warn))
+  },
+  message = function(mes) {
+    flog.warn(gsub("[\r\n]", " ", mes))
+  }
+)
 
+
+# check id is unique
+
+if (anyDuplicated(stations$id) > 0) {
+  msg <- "station id must be unique"
+  flog.fatal(msg)
+  stop(msg)
+}
+
+# if concurrent
+  # check name is unique
+  # check abstraction string is same for all stations
+
+if (isolation == FALSE) {
+  if (anyDuplicated(stations$name) > 0) {
+    msg <- "station name must be unique for concurrent mode"
+    flog.fatal(msg)
+    stop(msg)
+  }
+  if (length(unique(stations$abstract)) > 1) {
+    msg <- "defined abstraction stations must be identical for all stations in concurrent mode"
+    flog.fatal(msg)
+    stop(msg)
+  }
+}
+
+# if isolation
+  # check that repeated station names only differ in id, freq, freqgrp, carsp
+
+if (isolation) {
+  # if remove columns that are allowed to change
+  if ( nrow(stations %>% select(-id, -freq, -freqgrp, -carsp) %>%
+  # distinct should only return as many rows as there are unique station names
+    distinct()) != length(unique(stations$name)) ) {
+    msg <- "In isolation mode stations with the same name can only differ
+          in the values of id, freq, freqgrp, and carsp"
+    flog.fatal(msg)
+    stop(msg)
+  }
+}
 
 # create location column
 stations$location <-
@@ -83,12 +214,39 @@ stations$location <-
 colnames(stations)[1] <- "crscode"
 
 
+flog.info("stations.csv has been imported and checked")
+
+
 # Load exogenous data-----------------------------------------------------------
 
-exogenous <-
-  read.csv(file = "inst/example_input/exogenous.csv",
-           sep = ";",
-           stringsAsFactors = FALSE)
+tryCatch(
+  {exogenous <-
+    read.csv(file = "inst/example_input/exogenous.csv",
+             sep = ";",
+             stringsAsFactors = FALSE)
+  },
+  error = function(err) {
+    flog.fatal(gsub("[\r\n]", " ", err))
+    stop(err)
+  },
+  warning = function(warn) {
+    flog.warn(gsub("[\r\n]", " ", warn))
+  },
+  message = function(mes) {
+    flog.warn(gsub("[\r\n]", " ", mes))
+  }
+)
+
+
+# check number column can be coerced to numeric integer for all rows
+
+if (!testInteger(exogenous$number)) {
+  msg <- "exogenous$number must all be integers"
+  flog.fatal(msg)
+  stop(msg)
+}
+
+flog.info("exogenous.csv has been imported and checked")
 
 
 
@@ -100,40 +258,27 @@ exogenous <-
 query <- paste0("
                 create schema ", schema, " authorization postgres;
                 ")
-getQuery(con, query)
+sendQuery(con, query)
+
+
+flog.info(paste0("schema ", schema, " successfully created"))
+
 
 # write data.frame of proposed stations to postgresql table
 
 dbWriteTable(
   conn = con,
-  name = c(schema, 'proposed_stations'),
+  Id(schema = schema, table = "proposed_stations"),
   stations,
   append =
     FALSE,
-  row.names = TRUE
+  row.names = FALSE
 )
 
 query <- paste0("
-                alter table ",
-                schema,
-                ".proposed_stations rename \"row.names\" TO id;
-                ")
-getQuery(con, query)
-
-query <- paste0("
-                alter table ",
-                schema,
-                ".proposed_stations alter column id type int
-                using id::integer;
-                ")
-getQuery(con, query)
-
-query <- paste0("
                 alter table ", schema, ".proposed_stations add primary key (id)
-
-
                 ")
-getQuery(con, query)
+sendQuery(con, query)
 
 # create geometry column in proposed_stations table
 
@@ -144,7 +289,7 @@ query <- paste0(
   ".proposed_stations add column location_geom geometry(Point,27700);
   "
 )
-getQuery(con, query)
+sendQuery(con, query)
 
 # populate location_geom
 
@@ -156,7 +301,9 @@ query <- paste0(
   ST_GeomFromText('POINT('||stn_east||' '||stn_north||')', 27700);
   "
 )
-getQuery(con, query)
+dbSendQuery(con, query)
+
+flog.info("proposed_stations table successfully created")
 
 
 # Prepare exogenous inputs----------------------------------------------
@@ -175,7 +322,7 @@ query <- paste0("
                 schema,
                 ".exogenous_input rename \"row.names\" TO id;
                 ")
-getQuery(con, query)
+sendQuery(con, query)
 
 query <- paste0("
                 alter table ",
@@ -183,12 +330,13 @@ query <- paste0("
                 ".exogenous_input alter column id type int
                 using id::integer;
                 ")
-getQuery(con, query)
+sendQuery(con, query)
 
 query <- paste0("
                 alter table ", schema, ".exogenous_input add primary key (id);
                 ")
-getQuery(con, query)
+sendQuery(con, query)
+
 
 # Add and populate geom column for the exogenous centroids.
 # Can be either a postcode centroid or a workplace centroid
@@ -202,7 +350,7 @@ query <- paste0("
                 ".exogenous_input
                 add column geom geometry(Point,27700);
                 ")
-getQuery(con, query)
+sendQuery(con, query)
 
 query <- paste0(
   "
@@ -221,7 +369,7 @@ query <- paste0(
   (select distinct on (centroid) geom from tmp where a.centroid = tmp.centroid)
   "
 )
-getQuery(con, query)
+sendQuery(con, query)
 
 # Create columns and populate data that will be used for adjusting postcode
 # probability weighted population
@@ -236,7 +384,7 @@ query <- paste0(
   add column avg_hhsize numeric;
   "
 )
-getQuery(con, query)
+sendQuery(con, query)
 
 # Copy from number to population for type 'population'
 query <- paste0("
@@ -245,7 +393,7 @@ query <- paste0("
                 ".exogenous_input set population = number where type
                 ='population';
                 ")
-getQuery(con, query)
+sendQuery(con, query)
 
 
 # For type 'houses' we get the average household size for the local authority
@@ -272,9 +420,9 @@ query <- paste0(
   where a.id = tmp.id;
   "
 )
-getQuery(con, query)
+sendQuery(con, query)
 
-
+flog.info("exogenous table successfully created")
 
 # Create station service areas--------------------------------------------------
 
