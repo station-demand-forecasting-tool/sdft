@@ -54,8 +54,8 @@ the clusters to be configured prior to calling the function.
 
 The function submits db queries which rely on several pgRouting wrapper functions that must be
 located in the openroads schema: \code{create_pgr_vnodes},
-\code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints}, and
-\code{sdr_pc_station_withpoints_nobbox}.
+\code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints},
+\code{sdr_pc_station_withpoints_nobbox}, and \code{bbox_pgr_withpointscost}.
 
 Two views are created for use by these functions. The first is modelschema.centroidnodes
 which is a union of virtual nodes for the proposed stations (which are created in the query)

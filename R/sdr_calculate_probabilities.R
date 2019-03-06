@@ -51,7 +51,7 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
   query <- gsub(pattern = '\\s',
                 replacement = " ",
                 x = query)
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   #calculate probability
 
@@ -73,7 +73,7 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
       )
       "
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   query <-
     paste0(
@@ -90,7 +90,7 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
       ".id;
       "
       )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   query <-
     paste(
@@ -102,7 +102,7 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
       ",
       sep = ""
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
  # create indexes
 
@@ -115,7 +115,7 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
       ",
       sep = ""
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   query <-
     paste(
@@ -126,7 +126,7 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
       ",
       sep = ""
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   query <-
     paste(
@@ -137,6 +137,6 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
       ",
       sep = ""
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
 }

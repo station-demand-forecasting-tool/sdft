@@ -1,2 +1,2 @@
 job_id;method;group_id;group_crs
-model;isolation;grp1;CBN:40,HYL:40
+job001;concurrent;grp1;CBN:40,HYL:40

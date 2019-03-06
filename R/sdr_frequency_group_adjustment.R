@@ -42,7 +42,7 @@ sdr_frequency_group_adjustment <- function(schema, df, tablesuffix) {
       "'
       "
       )
-    getQuery(con, query)
+    sdr_dbExecute(con, query)
 
   }
 }

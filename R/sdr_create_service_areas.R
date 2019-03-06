@@ -47,7 +47,7 @@ for (i in sa) {
       column_name,
       " geometry(Polygon,27700);"
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   ## Note the pid provided in the virtual node sql to pgr_withpointsdd must be negative
   ## for the virtual nodes to be included when searching for nodes within driving distance.
@@ -57,6 +57,9 @@ for (i in sa) {
 
   # Begin the stations loop j
   for (j in 1:total_stations) {
+
+    flog.info(paste0("creating ", column_name, " for ", df$crscode[j]))
+
     query <- paste0(
       "with tmp as
       (
@@ -88,7 +91,7 @@ for (i in sa) {
       df$crscode[j] ,
       "';"
     )
-    getQuery(con, query)
+    sdr_dbExecute(con, query)
 
     # check for null service area returned  - a potential problem with ST_ConcaveHull with
     # target < 1
@@ -99,11 +102,13 @@ for (i in sa) {
         "select location from " , paste0(schema, '.', table), " where ", column_name, " is null;"
       )
 
-    stations_null <- getQuery(con, query)
+    stations_null <- sdr_dbGetQuery(con, query)
 
     total_null <- nrow(stations_null) # set number of records
 
     if (total_null > 0) {
+
+      flog.info(paste0("null returned for ", column_name, " for ", df$crscode[j], ": re-running with target = 1"))
 
       query <- paste0(
         "with tmp as
@@ -136,7 +141,7 @@ for (i in sa) {
         df$crscode[j] ,
         "';"
       )
-      getQuery(con, query)
+      sdr_dbExecute(con, query)
 
     }
 

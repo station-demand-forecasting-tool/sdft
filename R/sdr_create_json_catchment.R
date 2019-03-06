@@ -47,12 +47,16 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
       where_clause <-
         paste0("at_risk = '", crs, "' and proposed = '", abs_crs, "'")
     }
-    update_table <- paste(schema, ".abstraction_results")
+    update_table <- paste0(schema, ".abstraction_results")
     sa_table <- "data.stations"
   } else {
     stop("type not valid")
   }
 
+  futile.logger::flog.info(paste0("creating GeoJSON catchment, updating table: ", update_table))
+  futile.logger::flog.info(paste0("creating GeoJSON catchment, updating column: ", set_column))
+  futile.logger::flog.info(paste0("creating GeoJSON catchment, using 60 minute sa from table: ", sa_table))
+  futile.logger::flog.info(paste0("creating GeoJSON catchment, where: ", where_clause))
 
   query <- paste0(
     "update ", update_table, " set ", set_column, " = (select row_to_json(fc)
@@ -85,6 +89,6 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
     ) as f
     ) as fc ) where ", where_clause
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 }
 

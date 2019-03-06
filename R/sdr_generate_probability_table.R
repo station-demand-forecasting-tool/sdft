@@ -33,12 +33,12 @@ sdr_generate_probability_table <- function(schema, df, tablesuffix) {
     );
     "
   )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   # write the table for this crscode
-  RPostgreSQL::dbWriteTable(
+  RPostgres::dbWriteTable(
     conn = con,
-    name = c(schema, paste0("probability_",
+    Id(schema = schema, table = paste0("probability_",
                              tablesuffix)),
     df,
     append =
@@ -73,5 +73,5 @@ sdr_generate_probability_table <- function(schema, df, tablesuffix) {
     WHERE a.crscode = b.crscode
     "
   )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 }

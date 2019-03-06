@@ -43,60 +43,29 @@ getSQL <- function(filepath){
 #' @param con A database connection object for RPostgreSQL.
 #' @param query The query to be formatted.
 #' @export
-getQuery <- function(con, query) {
-  query <- gsub(pattern = '\\s' ,
-                replacement = " ",
-                x = query)
-  tryCatch(
-    expr = {
-      RPostgres::dbGetQuery(con, query)
-    },
-    error = function(err) {
-      flog.fatal(gsub("[\r\n]", " ", err))
-      stop(err)
-    },
-    warning = function(warn) {
-      flog.warn(gsub("[\r\n]", " ", warn))
-    },
-    message = function(mes) {
-      flog.info(gsub("[\r\n]", " ", mes))
-    }
-  )
+sdr_dbGetQuery <- function(con, query) {
+  query <- gsub("\\s+", " ", stringr::str_trim(query))
+  RPostgres::dbGetQuery(con, query)
 }
 
 
-#' Formats an RPostgreSQL sendQuery and then submits the query
+#' Formats an RPostgreSQL dbExecute and then submits the query
 #'
 #'
 #' This function allows the text of a SQL query to be formatted across multiple
 #' lines in an R document, by stripping the line breaks prior to submitting the
 #' query based on provided \code{con} object.
 #'
-#' Function also catches errors etc.
-#'
 #' @param con A database connection object for RPostgreSQL.
 #' @param query The query to be formatted.
 #' @export
-sendQuery <- function(con, query) {
-  query <- gsub(pattern = '\\s' ,
-                replacement = " ",
-                x = query)
-  tryCatch(
-    expr = {
-      RPostgres::dbSendQuery(con, query)
-    },
-    error = function(err) {
-      flog.fatal(gsub("[\r\n]", " ", err))
-      stop(err)
-    },
-    warning = function(warn) {
-      flog.warn(gsub("[\r\n]", " ", warn))
-    },
-    message = function(mes) {
-      flog.info(gsub("[\r\n]", " ", mes))
-    }
-  )
+  sdr_dbExecute <- function(con, query) {
+  query <- gsub("\\s+", " ", stringr::str_trim(query))
+  result <- RPostgres::dbExecute(con, query)
+  flog.debug(paste0(query, ": rows affected: ", result))
 }
+
+
 
 
 

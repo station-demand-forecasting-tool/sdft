@@ -38,6 +38,9 @@ sdr_calculate_prweighted_population <- function(schema, crs, tablesuffix) {
 
 
   if (tablesuffix == "concurrent") {
+
+    futile.logger::flog.info(paste0("Getting probability weighted population for: ", crs, ", from: probability_", tolower(tablesuffix)))
+
     query <- paste0(
       "
       with nw_pop as(
@@ -80,8 +83,11 @@ sdr_calculate_prweighted_population <- function(schema, crs, tablesuffix) {
       select round(coalesce(nw_pop.sum, 0) + coalesce(w_pop.sum, 0) + coalesce(adj_pop.sum, 0)) as w_pop from nw_pop, w_pop, adj_pop
       "
       )
-    result <- getQuery(con, query)
+    result <- sdr_dbGetQuery(con, query)
   } else {
+
+    futile.logger::flog.info(paste0("Getting probability weighted population for: ", crs, ", from: probability_", tolower(tablesuffix)))
+
     query <- paste0(
       "
       with nw_pop as(
@@ -119,7 +125,7 @@ sdr_calculate_prweighted_population <- function(schema, crs, tablesuffix) {
       select round(coalesce(nw_pop.sum, 0) + coalesce(w_pop.sum, 0) + coalesce(adj_pop.sum, 0)) as w_pop from nw_pop, w_pop, adj_pop
       "
       )
-    result <- getQuery(con, query)
+    result <- sdr_dbGetQuery(con, query)
   }
 
 return(result)

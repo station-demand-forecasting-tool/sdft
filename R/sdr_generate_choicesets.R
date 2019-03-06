@@ -29,8 +29,8 @@
 #'
 #' The function submits db queries which rely on several pgRouting wrapper functions that must be
 #' located in the openroads schema: \code{create_pgr_vnodes},
-#' \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints}, and
-#' \code{sdr_pc_station_withpoints_nobbox}.
+#' \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints},
+#' \code{sdr_pc_station_withpoints_nobbox}, and \code{bbox_pgr_withpointscost}.
 #'
 #' Two views are created for use by these functions. The first is modelschema.centroidnodes
 #' which is a union of virtual nodes for the proposed stations (which are created in the query)
@@ -66,6 +66,8 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
     pc_crs = abs_crs
   }
 
+  futile.logger::flog.info(paste0("Set of postcode choice sets is required for: ", paste0(pc_crs, collapse = ", ")))
+
   # Set the table to be used to get the service area geometry.
   # If existing is TRUE always use modelschema.proposed_stations. Otherwise
   # it depends on whether abs_crs is specified or not.
@@ -76,6 +78,10 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
   } else {
     pc_table = "data.stations"
   }
+
+  futile.logger::flog.info(paste0("Using service area geometry from: ", pc_table))
+
+  futile.logger::flog.info(paste0("Getting postcodes within 60 minute service area of: ", paste0(pc_crs, collapse = ", ")))
 
   # Get postcodes within the applicable 60 minute service area
   query <- paste0(
@@ -94,7 +100,8 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
     data.pc_pop_2011 a, sa where st_within(a.geom, sa.geom)
     "
     )
-    postcodes <- getQuery(con, query)
+    postcodes <- sdr_dbGetQuery(con, query)
+
 
 
   # Need to create virtual nodes for new stations.
@@ -105,6 +112,8 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
   # First CTE (tmp) is getting virtual nodes for the proposed station(s);
   # then select the station and relevant postcode nodes from openroads.centroidnodes;
   # then union all select the virtual node information from tmp.
+
+  futile.logger::flog.info("creating virtual nodes table")
 
   query <- paste0(
     "create or replace view ", schema, ".centroidnodes as
@@ -159,7 +168,12 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
     tmp
     "
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
+
+
+  # create view of existing and proposed station(s)
+
+  futile.logger::flog.info(paste0("creating stations view for existing stations and: ", paste0(crs, collapse = ", ")))
 
   query <- paste0(
     "
@@ -197,9 +211,11 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
     ")
     "
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   # generate choicesets using parallel processing
+
+  futile.logger::flog.info(paste0("starting parallel processing to generate the choicesets for ", nrow(postcodes), " postcodes"))
 
   df <- foreach::foreach(i=postcodes$postcode, .noexport="con", .packages=c("DBI", "RPostgreSQL", "dplyr"), .combine = 'rbind') %dopar%
   {
@@ -207,13 +223,13 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
     query <- paste0(
       "
       select postcode, crscode, distance from openroads.sdr_crs_pc_nearest_stationswithpoints('",
-      i,
+      schema, "', '", i,
       "', '",
-      paste (crs, sep = "", collapse = ", "),
+      paste(crs, sep = "", collapse = ", "),
       "', 1000, 0.5)
       "
       )
-    nearestx <- getQuery(con, query)
+    nearestx <- sdr_dbGetQuery(con, query)
 
     if (nrow(nearestx) > 0) {
 
@@ -224,12 +240,12 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
         query <- paste0(
           "
           select distance from openroads.sdr_pc_station_withpoints('"
-          , nearestx$postcode[j],
+          , schema, "', '", nearestx$postcode[j],
           "', '", nearestx$crscode[j],
           "', 25000, 1)
           "
           )
-        d <- getQuery(con, query)
+        d <- sdr_dbGetQuery(con, query)
         # check if a distance is returned
         if (nrow(d) > 0) {
           nearestx$distance[j] <- d$distance
@@ -238,12 +254,12 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
           query <- paste0(
             "
           select distance from openroads.sdr_pc_station_withpoints_nobbox('"
-            , nearestx$postcode[j],
+            , schema, "', '", nearestx$postcode[j],
             "', '", nearestx$crscode[j],
             "')
           "
           )
-          d <- getQuery(con, query)
+          d <- sdr_dbGetQuery(con, query)
           # just in case still no result trap and use -9999
           # how to deal with this??
           nearestx$distance[j] <- ifelse(nrow(d) > 0, d$distance, -9999)
@@ -263,9 +279,37 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
 
   # remove rows for any postcodes where none of the crscodes are in the choiceset
 
+  futile.logger::flog.info(paste0("Set of choicesets generated for: ", paste0(pc_crs, collapse = ", ")))
+  futile.logger::flog.info(paste0("Rows: ", nrow(df)))
+  futile.logger::flog.info(paste0("removing all rows for any postcode where none of: ", paste0(pc_crs, collapse = ", ")))
+
   df <- df %>%
     dplyr::group_by(postcode) %>%
     dplyr::filter(any(crscode %in% pc_crs))
+
+
+  futile.logger::flog.info(paste0("Rows: ", nrow(df)))
+  futile.logger::flog.info(paste0("Unique postcodes: ", length(unique(df$postcode))))
+
+  # log average choice set size
+  futile.logger::flog.info(paste0("average choiceset size: ",
+    df %>%
+      dplyr::summarise(number = n()) %>%
+      dplyr::summarise(mean(number))
+  ))
+
+  futile.logger::flog.info(paste0("min choiceset size: ",
+                                  df %>%
+                                    dplyr::summarise(number = n()) %>%
+                                    dplyr::summarise(min(number))
+  ))
+
+  futile.logger::flog.info(paste0("max choiceset size: ",
+                                  df %>%
+                                    dplyr::summarise(number = n()) %>%
+                                    dplyr::summarise(max(number))
+  ))
+
   df <- dplyr::ungroup(df)
 
   return(df)
