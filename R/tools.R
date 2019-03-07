@@ -62,7 +62,7 @@ sdr_dbGetQuery <- function(con, query) {
   sdr_dbExecute <- function(con, query) {
   query <- gsub("\\s+", " ", stringr::str_trim(query))
   result <- RPostgres::dbExecute(con, query)
-  flog.debug(paste0(query, ": rows affected: ", result))
+  futile.logger::flog.debug(paste0(query, ": rows affected: ", result))
 }
 
 

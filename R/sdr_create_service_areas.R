@@ -58,7 +58,7 @@ for (i in sa) {
   # Begin the stations loop j
   for (j in 1:total_stations) {
 
-    flog.info(paste0("creating ", column_name, " for ", df$crscode[j]))
+    futile.logger::flog.info(paste0("creating ", column_name, " for ", df$crscode[j]))
 
     query <- paste0(
       "with tmp as
@@ -108,7 +108,7 @@ for (i in sa) {
 
     if (total_null > 0) {
 
-      flog.info(paste0("null returned for ", column_name, " for ", df$crscode[j], ": re-running with target = 1"))
+      futile.logger::flog.info(paste0("null returned for ", column_name, " for ", df$crscode[j], ": re-running with target = 1"))
 
       query <- paste0(
         "with tmp as
