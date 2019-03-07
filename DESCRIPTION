@@ -21,5 +21,4 @@ Imports:
     futile.logger,
     DBI,
     checkmate
-    
 RoxygenNote: 6.1.1
