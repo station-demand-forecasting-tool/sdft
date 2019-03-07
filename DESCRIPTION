@@ -16,6 +16,10 @@ Imports:
     foreach,
     parallel,
     doParallel,
-    RPostgreSQL,
-    magrittr
+    RPostgres,
+    magrittr,
+    futile.logger,
+    DBI,
+    checkmate
+    
 RoxygenNote: 6.1.1
