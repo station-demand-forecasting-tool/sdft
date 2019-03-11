@@ -46,7 +46,7 @@ select
 node_sql := format ( 'select pid*-1 as pid, edge_id, frac::double precision as fraction from %1$s.centroidnodes where (type = $type$station$type$ or pid = %2$s) and pid <0', schema, origin_node );
 
 execute format ('create temp table tmp as (select $1 as postcode, d.name, d.crscode, d.%2$s, d.location_geom, e.pid from %1$s.stations d
-                                           left join model.centroidnodes e on d.crscode = e.reference
+                                           left join %1$s.centroidnodes e on d.crscode = e.reference
                                            where st_within($2, %2$s))', schema, sa) using pc, origin_geom;
 
 -- check if any of the station(s) crscodse are present in tmp. if not we don't

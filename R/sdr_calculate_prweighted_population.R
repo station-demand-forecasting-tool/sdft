@@ -128,5 +128,5 @@ sdr_calculate_prweighted_population <- function(schema, crs, tablesuffix) {
     result <- sdr_dbGetQuery(con, query)
   }
 
-return(result)
+return(as.numeric(result))
 }
