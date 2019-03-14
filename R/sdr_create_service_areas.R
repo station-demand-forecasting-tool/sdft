@@ -99,7 +99,7 @@ for (i in sa) {
 
     query <-
       paste0(
-        "select location from " , paste0(schema, '.', table), " where ", column_name, " is null;"
+        "select location from " , paste0(schema, '.', table), " where ", column_name, " is null and crscode = '", df$crscode[j], "'"
       )
 
     stations_null <- sdr_dbGetQuery(con, query)

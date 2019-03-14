@@ -481,24 +481,28 @@ if (isolation) {
   unique_stations <- stations %>% distinct(name, .keep_all = FALSE)
 
   for (name in unique_stations$name) {
+
     # get the first crscode for a station with name
+
     first_crs <- stations$crscode[stations$name == name][1]
 
     # generate the choiceset for that crs
 
-    flog.info(paste0("calling sdr_generate_choicesets for: ", first_crs))
+    flog.info(paste0("calling sdr_generate_choicesets for: ", name))
 
-    choicesets <- sdr_generate_choicesets(schema, first_crs)
+    station_choiceset <- sdr_generate_choicesets(schema, first_crs)
 
     # for every crscode with the same station
     for (crscode in stations$crscode[stations$name == name]) {
-      # amend the station crscode in the choice set to the current
-      # crscode
-      choicesets$crscode[choicesets$crscode == first_crs] <- crscode
+
+      crscode_choiceset <- station_choiceset
+
+      # amend first_crs in the choice set to the current crscode
+      crscode_choiceset[crscode_choiceset == first_crs] <- crscode
 
       flog.info(paste0("calling sdr_generate_probability_table for: ", crscode))
 
-      sdr_generate_probability_table(schema, choicesets, tolower(crscode))
+      sdr_generate_probability_table(schema, crscode_choiceset, tolower(crscode))
 
       # make frequency group adjustments if required
       if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
