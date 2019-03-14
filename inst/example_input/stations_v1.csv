@@ -1,2 +1,0 @@
-id;name;region;stn_east;stn_north;acc_east;acc_north;freq;freqgrp;carsp;ticketm;busint;cctv;terminal;electric;tcbound;category;abstract
-HELST;HELSTON;South West;166257;28051;166257;28051;20;grp1;25;true;false;true;true;false;false;E;PNZ,PYN,CBN
