@@ -23,8 +23,6 @@ if (file.exists("sdr.log")) {
 flog.appender(appender.file("sdr.log"))
 # set logging level
 flog.threshold("INFO")    # TRACE, DEBUG, INFO, WARN, ERROR, FATAL
-# During testing set this variable to TRUE. This produces fake 60-minute
-# proposed station service areas which are actually only 5-minute service areas.
 
 options(
   showWarnCalls = TRUE,
@@ -42,6 +40,8 @@ options(
     })
 )
 
+# During testing set this variable to TRUE. This produces fake 60-minute
+# proposed station service areas which are actually only 5-minute service areas.
 testing <- TRUE
 
 flog.info(paste0("Testing mode: ", testing))
@@ -415,9 +415,26 @@ if (testing) {
   )
   sdr_dbExecute(con, query)
 
+  query <- paste0(
+    "
+    update data.stations set service_area_60mins = service_area_60mins_5mins
+    "
+  )
+  sdr_dbExecute(con, query)
+
 } else {
+
+
+  query <- paste0(
+    "
+    update data.stations set service_area_60mins = service_area_60mins_actual
+    "
+  )
+  sdr_dbExecute(con, query)
+
   # Create 60 minute service area - used to identify postcode centroids to be
   # considered for inclusion in model
+
 
   sdr_create_service_areas(
     schema = schema,
@@ -662,11 +679,11 @@ for (crscode in stations$crscode) {
   if (isolation) {
     flog.info("calling sdr_create_json_catchment")
 
-    sdr_create_json_catchment(schema, "proposed", crscode, tolower(crscode))
+    sdr_create_json_catchment(schema, "proposed", crscode, tolower(crscode), tolerance = 2)
   } else {
     flog.info("calling sdr_create_json_catchment")
 
-    sdr_create_json_catchment(schema, "proposed", crscode, "concurrent")
+    sdr_create_json_catchment(schema, "proposed", crscode, "concurrent", tolerance = 2)
   }
 }
 
@@ -819,6 +836,7 @@ if (is.character(unique(stations$abstract))) {
     ".abstraction_results (
     id serial primary key,
     proposed text,
+    proposed_name text,
     at_risk text,
     prwpop_before int,
     prwpop_after int,
@@ -850,8 +868,10 @@ if (is.character(unique(stations$abstract))) {
         query <- paste0(
           "insert into ",
           schema,
-          ".abstraction_results (id, proposed, at_risk) values (default,'",
+          ".abstraction_results (id, proposed, proposed_name, at_risk) values (default,'",
           proposed,
+          "','",
+          stations$name[stations$crscode == proposed],
           "','",
           at_risk,
           "')"
@@ -1240,7 +1260,7 @@ if (is.character(unique(stations$abstract))) {
       sdr_create_json_catchment(schema,
                                 "abstraction",
                                 crscode,
-                                paste0(tolower(crscode), "_before_abs"))
+                                paste0(tolower(crscode), "_before_abs"), tolerance = 2)
     }
 
     # generate after catchment
@@ -1259,7 +1279,7 @@ if (is.character(unique(stations$abstract))) {
             "_after_abs_",
             tolower(crscode)
           ),
-          crscode
+          crscode, tolerance = 2
         )
       }
     }
@@ -1274,7 +1294,7 @@ if (is.character(unique(stations$abstract))) {
       sdr_create_json_catchment(schema,
                                 "abstraction",
                                 crscode,
-                                paste0(tolower(crscode), "_before_abs"))
+                                paste0(tolower(crscode), "_before_abs"), tolerance = 2)
     }
 
     # generate after catchment
@@ -1287,7 +1307,7 @@ if (is.character(unique(stations$abstract))) {
           "abstraction",
           atrisk_crscode,
           paste0(tolower(atrisk_crscode), "_after_abs_concurrent"),
-          "concurrent"
+          "concurrent", tolerance = 2
         )
       }
   } # end generate before and after GeoJSON catchments.
