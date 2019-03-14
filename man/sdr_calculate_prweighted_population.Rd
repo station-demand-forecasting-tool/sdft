@@ -4,9 +4,11 @@
 \alias{sdr_calculate_prweighted_population}
 \title{Calculates the total probability weighted population for a station}
 \usage{
-sdr_calculate_prweighted_population(crs, tablesuffix)
+sdr_calculate_prweighted_population(schema, crs, tablesuffix)
 }
 \arguments{
+\item{schema}{A text string for the database schema name.}
+
 \item{crs}{The crscode of the station.}
 
 \item{tablesuffix}{The suffix of the probability table - either crscode

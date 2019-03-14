@@ -1,4 +1,4 @@
 id;name;region;stn_east;stn_north;acc_east;acc_north;freq;freqgrp;carsp;ticketm;busint;cctv;terminal;electric;tcbound;category;abstract
-HELST;HELSTON;South West;166257;28051;166257;28051;20;grp1;25;true;false;true;true;false;false;E;PNZ,CBN
-NGLAN;NANCEGOLLAN;South West;163911;32068;163911;32068;20;grp1;25;true;false;true;true;false;false;E;PNZ,CBN
+HELST1;HELSTON;South West;166257;28051;166257;28051;20;grp1;25;true;false;true;true;false;false;E;PNZ,CBN
+NGLAN1;NANCEGOLLAN;South West;163911;32068;163911;32068;20;grp1;25;true;false;true;true;false;false;E;PNZ,CBN
 

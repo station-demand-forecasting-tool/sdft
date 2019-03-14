@@ -33,7 +33,7 @@ getSQL <- function(filepath){
 }
 
 
-#' Formats an RPostgreSQL query and then submits the query
+#' Formats an RPostgreSQL getQuery and then submits the query
 #'
 #'
 #' This function allows the text of a SQL query to be formatted across multiple
@@ -43,9 +43,29 @@ getSQL <- function(filepath){
 #' @param con A database connection object for RPostgreSQL.
 #' @param query The query to be formatted.
 #' @export
-getQuery <- function(con, query) {
-  query <- gsub(pattern = '\\s' ,
-                replacement = " ",
-                x = query)
-  RPostgreSQL::dbGetQuery(con, query)
+sdr_dbGetQuery <- function(con, query) {
+  query <- gsub("\\s+", " ", stringr::str_trim(query))
+  RPostgres::dbGetQuery(con, query)
 }
+
+
+#' Formats an RPostgreSQL dbExecute and then submits the query
+#'
+#'
+#' This function allows the text of a SQL query to be formatted across multiple
+#' lines in an R document, by stripping the line breaks prior to submitting the
+#' query based on provided \code{con} object.
+#'
+#' @param con A database connection object for RPostgreSQL.
+#' @param query The query to be formatted.
+#' @export
+  sdr_dbExecute <- function(con, query) {
+  query <- gsub("\\s+", " ", stringr::str_trim(query))
+  result <- RPostgres::dbExecute(con, query)
+  futile.logger::flog.debug(paste0(query, ": rows affected: ", result))
+}
+
+
+
+
+

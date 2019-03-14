@@ -1,53 +1,82 @@
+#Rscript main.r > output.txt
+
 # Preliminaries-----------------------------------------------------------------
 
+library(stationdemandr)
 library(dplyr)
 library(tidyr)
 library(foreach)
+library(stringr)
 library(doParallel)
 library(keyring)
-library(RPostgreSQL)
+library(RPostgres)
+library(DBI)
+library(futile.logger)
+library(checkmate)
 
+# delete any existing log files
+if (file.exists("sdr.log")) {
+  file.remove("sdr.log")
+}
+
+# set up logging
+flog.appender(appender.file("sdr.log"))
+# set logging level
+flog.threshold("INFO")    # TRACE, DEBUG, INFO, WARN, ERROR, FATAL
+
+options(
+  showWarnCalls = TRUE,
+  showErrorCalls = TRUE,
+  show.error.locations = TRUE,
+  error = function() {
+    flog.error(geterrmessage())
+  },
+  warning.expression =
+    quote({
+      if (exists("last.warning", baseenv()) && !is.null(last.warning)) {
+        txt = paste0(names(last.warning), collapse = " ")
+        flog.warn(txt)
+      }
+    })
+)
 
 # During testing set this variable to TRUE. This produces fake 60-minute
 # proposed station service areas which are actually only 5-minute service areas.
-
 testing <- TRUE
+
+flog.info(paste0("Testing mode: ", testing))
 
 # Set up a database connection.
 # Using keyring package for storing database password in Windows credential store
 # to avoid exposing on GitHub. Amend as appropriate.
 
-drv <- dbDriver("PostgreSQL")
 con <-
   dbConnect(
-    drv,
+    RPostgres::Postgres(),
+    dbname = "dafni",
     host = "localhost",
     user = "postgres",
-    password = key_get("postgres"),
-    dbname = "dafni"
+    password = key_get("postgres")
   )
+
 
 # Set up parallel processing
 # Note this is only currently used in the sdr_generate_choicesets() function in
 # the foreach loop. Number of clusters is total available cores less two.
+
 
 cl <- makeCluster(detectCores() - 2)
 registerDoParallel(cl)
 
 clusterEvalQ(cl, {
   library(DBI)
-  library(RPostgreSQL)
+  library(RPostgres)
   library(keyring)
-  getQuery <- function(con, query) {
-    query <- gsub(pattern = '\\s' ,
-                  replacement = " ",
-                  x = query)
-    dbGetQuery(con, query)
-  }
-  drv <- dbDriver("PostgreSQL")
+  library(stationdemandr)
+  drv <- dbDriver("Postgres")
   con <-
     dbConnect(
-      drv,
+      RPostgres::Postgres(),
       host = "localhost",
       user = "postgres",
       password = key_get("postgres"),
@@ -58,27 +87,95 @@ clusterEvalQ(cl, {
 
 # Load configuration data-------------------------------------------------------
 
+
 config <-
   read.csv(file = "inst/example_input/config.csv",
            sep = ";",
            stringsAsFactors = FALSE)
 
-isolation <- ifelse(config$method == "isolation", TRUE, FALSE)
+
+# check for valid mode
+if (config$method == "isolation") {
+  isolation <- TRUE
+} else if (config$method == "concurrent") {
+  isolation <- FALSE
+} else {
+  msg <-
+    "Model method not valid, must be \"isolation\" or \"concurrent\""
+  flog.fatal(msg)
+  stop(msg)
+}
+
+# set schema name to job_id (check begins with a-z - required by postgresql)
+if (grepl("[a-z]", substr(config$job_id, 1, 1), ignore.case = FALSE)) {
+  schema <- config$job_id
+} else {
+  msg <-
+    "database schema name uses config$job_id, first character must be lowercase a-z"
+  flog.fatal(msg)
+  stop(msg)
+}
+
+flog.info("config.csv has been imported and checked")
+
 
 
 # Load station data-------------------------------------------------------------
-
 
 stations <-
   read.csv(file = "inst/example_input/stations.csv",
            sep = ";",
            stringsAsFactors = FALSE)
 
+# check id is unique
+
+if (anyDuplicated(stations$id) > 0) {
+  msg <- "station id must be unique"
+  flog.fatal(msg)
+  stop(msg)
+}
+
+# if concurrent
+# check name is unique
+# check abstraction string is same for all stations
+
+if (isolation == FALSE) {
+  if (anyDuplicated(stations$name) > 0) {
+    msg <- "station name must be unique for concurrent mode"
+    flog.fatal(msg)
+    stop(msg)
+  }
+  if (length(unique(stations$abstract)) > 1) {
+    msg <-
+      "defined abstraction stations must be identical for all stations in concurrent mode"
+    flog.fatal(msg)
+    stop(msg)
+  }
+}
+
+# if isolation
+# check that repeated station names only differ in id, freq, freqgrp, carsp
+
+if (isolation) {
+  # if remove columns that are allowed to change
+  if (nrow(stations %>% select(-id,-freq,-freqgrp,-carsp) %>%
+           # distinct should only return as many rows as there are unique station names
+           distinct()) != length(unique(stations$name))) {
+    msg <-
+      "In isolation mode stations with the same name can only differ
+    in the values of id, freq, freqgrp, and carsp"
+    flog.fatal(msg)
+    stop(msg)
+  }
+}
 
 # create location column
 stations$location <-
   paste0(stations$acc_east, ",", stations$acc_north)
 colnames(stations)[1] <- "crscode"
+
+
+flog.info("stations.csv has been imported and checked")
 
 
 # Load exogenous data-----------------------------------------------------------
@@ -88,6 +185,16 @@ exogenous <-
            sep = ";",
            stringsAsFactors = FALSE)
 
+# check number column can be coerced to numeric integer for all rows
+
+if (!testInteger(exogenous$number)) {
+  msg <- "exogenous$number must all be integers"
+  flog.fatal(msg)
+  stop(msg)
+}
+
+flog.info("exogenous.csv has been imported and checked")
+
 
 
 # Database setup----------------------------------------------------------------
@@ -96,15 +203,16 @@ exogenous <-
 # create db schema to hold model data
 
 query <- paste0("
-                create schema model authorization postgres;
+                create schema ", schema, " authorization postgres;
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
+
 
 # write data.frame of proposed stations to postgresql table
 
 dbWriteTable(
   conn = con,
-  name = c('model', 'proposed_stations'),
+  Id(schema = schema, table = "proposed_stations"),
   stations,
   append =
     FALSE,
@@ -112,48 +220,53 @@ dbWriteTable(
 )
 
 query <- paste0("
-                alter table model.proposed_stations rename \"row.names\" TO id;
+                alter table ", schema, ".proposed_stations rename \"row_names\" TO id
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 query <- paste0("
-                alter table model.proposed_stations alter column id type int
-                using id::integer;
+                alter table ", schema, ".proposed_stations alter column id type int
+                using id::integer
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 query <- paste0("
-                alter table model.proposed_stations add primary key (id)
-
-
+                alter table ", schema, ".proposed_stations add primary key (id)
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 # create geometry column in proposed_stations table
 
 query <- paste0(
   "
-  alter table model.proposed_stations add column location_geom geometry(Point,27700);
+  alter table ",
+  schema,
+  ".proposed_stations add column location_geom geometry(Point,27700)
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 # populate location_geom
 
 query <- paste0(
   "
-  update model.proposed_stations set location_geom =
-  ST_GeomFromText('POINT('||stn_east||' '||stn_north||')', 27700);
+  update ",
+  schema,
+  ".proposed_stations set location_geom =
+  ST_GeomFromText('POINT('||stn_east||' '||stn_north||')', 27700)
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
+
+
+flog.info("proposed_stations table successfully created")
 
 
 # Prepare exogenous inputs----------------------------------------------
 
 dbWriteTable(
   conn = con,
-  name = c('model', 'exogenous_input'),
+  Id(schema = schema, table = "exogenous_input"),
   exogenous,
   append =
     FALSE,
@@ -161,20 +274,25 @@ dbWriteTable(
 )
 
 query <- paste0("
-                alter table model.exogenous_input rename \"row.names\" TO id;
+                alter table ",
+                schema,
+                ".exogenous_input rename \"row_names\" TO id
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 query <- paste0("
-                alter table model.exogenous_input alter column id type int
-                using id::integer;
+                alter table ",
+                schema,
+                ".exogenous_input alter column id type int
+                using id::integer
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 query <- paste0("
-                alter table model.exogenous_input add primary key (id);
+                alter table ", schema, ".exogenous_input add primary key (id)
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
+
 
 # Add and populate geom column for the exogenous centroids.
 # Can be either a postcode centroid or a workplace centroid
@@ -183,25 +301,31 @@ getQuery(con, query)
 # Re-calibrate the trip end model?
 
 query <- paste0("
-                alter table model.exogenous_input
-                add column geom geometry(Point,27700);
+                alter table ",
+                schema,
+                ".exogenous_input
+                add column geom geometry(Point,27700)
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 query <- paste0(
   "
   with tmp as (
   select a.centroid, coalesce(b.geom, c.geom) as geom
-  from model.exogenous_input a
+  from ",
+  schema,
+  ".exogenous_input a
   left join data.pc_pop_2011 b on a.centroid = b.postcode
   left join data.workplace2011 c on a.centroid = c.wz
   )
-  update model.exogenous_input a
+  update ",
+  schema,
+  ".exogenous_input a
   set geom =
   (select distinct on (centroid) geom from tmp where a.centroid = tmp.centroid)
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 # Create columns and populate data that will be used for adjusting postcode
 # probability weighted population
@@ -209,19 +333,23 @@ getQuery(con, query)
 # population column
 query <- paste0(
   "
-  alter table model.exogenous_input
+  alter table ",
+  schema,
+  ".exogenous_input
   add column population int8,
-  add column avg_hhsize numeric;
+  add column avg_hhsize numeric
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 # Copy from number to population for type 'population'
 query <- paste0("
-                update model.exogenous_input set population = number where type
-                ='population';
+                update ",
+                schema,
+                ".exogenous_input set population = number where type
+                ='population'
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 
 # For type 'houses' we get the average household size for the local authority
@@ -231,31 +359,37 @@ query <- paste0(
   "
   with tmp as (
   select a.id, c.avg_hhsize_2019, a.number * c.avg_hhsize_2019 as population
-  from model.exogenous_input a
+  from ",
+  schema,
+  ".exogenous_input a
   left join data.pc_pop_2011 b
   on a.centroid = b.postcode
   left join data.hhsize c
   on b.oslaua = c.area_code
   where type = 'houses')
-  update model.exogenous_input a
+  update ",
+  schema,
+  ".exogenous_input a
   set population = tmp.population,
   avg_hhsize = tmp.avg_hhsize_2019
   from tmp
-  where a.id = tmp.id;
+  where a.id = tmp.id
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
-
+flog.info("exogenous table successfully created")
 
 # Create station service areas--------------------------------------------------
 
 # create distance-based service areas used in identifying nearest 10 stations to
 # each postcode centroid
 
+flog.info("starting to create station service areas ... ")
+
 sdr_create_service_areas(
+  schema = schema,
   df = stations,
-  schema = "model",
   table = "proposed_stations",
   sa = c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000),
   cost = "len"
@@ -264,8 +398,8 @@ sdr_create_service_areas(
 
 if (testing) {
   sdr_create_service_areas(
+    schema = schema,
     df = stations,
-    schema = "model",
     table = "proposed_stations",
     sa = c(5),
     cost = "time",
@@ -274,18 +408,37 @@ if (testing) {
 
   query <- paste0(
     "
-    alter table model.proposed_stations rename column service_area_5mins to service_area_60mins;
+    alter table ",
+    schema,
+    ".proposed_stations rename column service_area_5mins to service_area_60mins
     "
   )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
+
+  query <- paste0(
+    "
+    update data.stations set service_area_60mins = service_area_60mins_5mins
+    "
+  )
+  sdr_dbExecute(con, query)
 
 } else {
+
+
+  query <- paste0(
+    "
+    update data.stations set service_area_60mins = service_area_60mins_actual
+    "
+  )
+  sdr_dbExecute(con, query)
+
   # Create 60 minute service area - used to identify postcode centroids to be
   # considered for inclusion in model
 
+
   sdr_create_service_areas(
+    schema = schema,
     df = stations,
-    schema = "model",
     table = "proposed_stations",
     sa = c(60),
     cost = "time",
@@ -299,8 +452,8 @@ if (testing) {
 # of station
 
 sdr_create_service_areas(
+  schema = schema,
   df = stations,
-  schema = "model",
   table = "proposed_stations",
   sa = c(1),
   cost = "time",
@@ -308,9 +461,11 @@ sdr_create_service_areas(
 )
 
 
-
+flog.info("station service area generation completed")
 
 # Generate probability tables---------------------------------------------------
+
+flog.info("starting to generate choice sets and probability tables ...")
 
 if (isolation) {
   # As multiple stations with the same choice set can be input for sensitivity
@@ -320,6 +475,8 @@ if (isolation) {
   # to separate out generation of the choice sets (and the service areas above) from
   # the proposed_stations table.
 
+  flog.info("method is isolation")
+
   # get df of unique station names
   unique_stations <- stations %>% distinct(name, .keep_all = FALSE)
 
@@ -328,7 +485,10 @@ if (isolation) {
     first_crs <- stations$crscode[stations$name == name][1]
 
     # generate the choiceset for that crs
-    choicesets <- sdr_generate_choicesets(first_crs)
+
+    flog.info(paste0("calling sdr_generate_choicesets for: ", first_crs))
+
+    choicesets <- sdr_generate_choicesets(schema, first_crs)
 
     # for every crscode with the same station
     for (crscode in stations$crscode[stations$name == name]) {
@@ -336,7 +496,9 @@ if (isolation) {
       # crscode
       choicesets$crscode[choicesets$crscode == first_crs] <- crscode
 
-      sdr_generate_probability_table(choicesets, tolower(crscode))
+      flog.info(paste0("calling sdr_generate_probability_table for: ", crscode))
+
+      sdr_generate_probability_table(schema, choicesets, tolower(crscode))
 
       # make frequency group adjustments if required
       if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
@@ -344,20 +506,34 @@ if (isolation) {
           data.frame(fgrp = config[config$group_id == stations$freqgrp[stations$crscode == crscode],
                                    "group_crs"], stringsAsFactors = FALSE)
 
-        sdr_frequency_group_adjustment(df, tolower(crscode))
+        flog.info(paste0(
+          "calling sdr_frequency_group_adjustment for: ",
+          crscode
+        ))
+
+        sdr_frequency_group_adjustment(schema, df, tolower(crscode))
 
       } # end if freqgrp
 
       # calculate the probabilities
-      sdr_calculate_probabilities(tolower(crscode))
+
+      flog.info(paste0("calling sdr_calculate_probabilities for: ", crscode))
+
+      sdr_calculate_probabilities(schema, tolower(crscode))
     }
   }
 } else {
   # Concurrent method
 
-  choicesets <- sdr_generate_choicesets(stations$crscode)
+  flog.info("method is concurrent")
 
-  sdr_generate_probability_table(choicesets, "concurrent")
+  flog.info(paste0("calling sdr_generate_choicesets for: ", paste0(stations$crscode, collapse = ", ")))
+
+  choicesets <- sdr_generate_choicesets(schema, stations$crscode)
+
+  flog.info("calling sdr_generate_probability_table for concurrent")
+
+  sdr_generate_probability_table(schema, choicesets, "concurrent")
 
   # make frequency group adjustments if required
   # must only be a single frequency group for concurrent treatment
@@ -367,12 +543,16 @@ if (isolation) {
     df <-
       data.frame(fgrp = config[config$group_id == stations$freqgrp[1], "group_crs"], stringsAsFactors = FALSE)
 
-    sdr_frequency_group_adjustment(df, "concurrent")
+    flog.info("calling sdr_frequency_group_adjustment for concurrent")
+
+    sdr_frequency_group_adjustment(schema, df, "concurrent")
 
   } # end if freqgrp
 
+  flog.info("calling sdr_calculate_probabilities for concurrent")
+
   # calculate probabilities
-  sdr_calculate_probabilities("concurrent")
+  sdr_calculate_probabilities(schema, "concurrent")
 }
 
 
@@ -380,77 +560,103 @@ if (isolation) {
 
 # create and populate 1-minute workplace population column in proposed_stations
 
+flog.info("create and populate 1-minute workplace population column in proposed_stations")
+
 query <- paste0("
-                alter table model.proposed_stations
+                alter table ",
+                schema,
+                ".proposed_stations
                 add column workpop_1min int8
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 query <- paste0(
   "
   with tmp as (
   select a.crscode, coalesce(sum(b.population), 0) as sum
-  from model.proposed_stations a
+  from ",
+  schema,
+  ".proposed_stations a
   left join data.workplace2011 b
   on st_within(b.geom, a.service_area_1mins)
   group by crscode)
-  update model.proposed_stations a
+  update ",
+  schema,
+  ".proposed_stations a
   set workpop_1min =
   (select sum from tmp where tmp.crscode = a.crscode)
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 # adjustments for new workplace population from exogenous input file
 # update workplace pop in proposed_stations table if any of the exogenous
 # centroids are within the proposed station's 1-minute service area
 
+flog.info("make adjustments for new workplace population from exogenous_input")
+
 query <- paste0(
   "
   with tmp as (
   select a.crscode, b.centroid, b.number
-  from model.proposed_stations a
-  left join model.exogenous_input b
+  from ",
+  schema,
+  ".proposed_stations a
+  left join ",
+  schema,
+  ".exogenous_input b
   on st_within(b.geom, a.service_area_1mins)
   where b.type = 'jobs'
   )
-  update model.proposed_stations a
+  update ",
+  schema,
+  ".proposed_stations a
   set workpop_1min = workpop_1min +
   (select coalesce(sum(number), 0) from tmp where a.crscode = tmp.crscode)
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 # calculate probabilty weighted population for each station
 
 # create column in proposed_stations table
 
 query <- paste0("
-                alter table model.proposed_stations
+                alter table ",
+                schema,
+                ".proposed_stations
                 add column prw_pop int8
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 for (crscode in stations$crscode) {
   if (isolation) {
+    flog.info("calling sdr_calculate_prweighted_population")
+
     prweighted_pop <-
-      sdr_calculate_prweighted_population(crscode, tolower(crscode))
+      sdr_calculate_prweighted_population(schema, crscode, tolower(crscode))
   } else {
+    flog.info("calling sdr_calculate_prweighted_population")
+
     prweighted_pop <-
-      sdr_calculate_prweighted_population(crscode, "concurrent")
+      sdr_calculate_prweighted_population(schema, crscode, "concurrent")
 
   }
 
-  # update model.proposed_stations table
+  flog.info("updating proposed stations_table column: prw_pop")
+
+  # update modelschema.proposed_stations table
   query <- paste0(
     "
-    update model.proposed_stations set prw_pop = ",
+    update ",
+    schema,
+    ".proposed_stations set prw_pop = ",
     prweighted_pop,
     " where crscode = '",
     crscode,
     "'"
   )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
 }
 
@@ -461,17 +667,23 @@ for (crscode in stations$crscode) {
 # create column in proposed_stations table
 
 query <- paste0("
-                alter table model.proposed_stations
+                alter table ",
+                schema,
+                ".proposed_stations
                 add column catchment json
                 ")
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 
 for (crscode in stations$crscode) {
   if (isolation) {
-    sdr_create_json_catchment("proposed", crscode, tolower(crscode))
+    flog.info("calling sdr_create_json_catchment")
+
+    sdr_create_json_catchment(schema, "proposed", crscode, tolower(crscode), tolerance = 2)
   } else {
-    sdr_create_json_catchment("proposed", crscode, "concurrent")
+    flog.info("calling sdr_create_json_catchment")
+
+    sdr_create_json_catchment(schema, "proposed", crscode, "concurrent", tolerance = 2)
   }
 }
 
@@ -479,14 +691,18 @@ for (crscode in stations$crscode) {
 
 # Generate forecasts------------------------------------------------------------
 
+flog.info("starting to generate forecasts ...")
+
 query <- paste0(
   "
-  alter table model.proposed_stations
+  alter table ",
+  schema,
+  ".proposed_stations
   add column forecast_base int8,
   add column forecast_uplift int8;
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 
 # Call:
@@ -548,13 +764,17 @@ query <- paste0(
   var_terminus ,
   ")))
   as forecast_base
-  from model.proposed_stations
+  from ",
+  schema,
+  ".proposed_stations
   )
-  update model.proposed_stations a set forecast_base = tmp.forecast_base from tmp
-  where a.id = tmp.id;
+  update ",
+  schema,
+  ".proposed_stations a set forecast_base = tmp.forecast_base from tmp
+  where a.id = tmp.id
   "
   )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 # regional-based uplift forecast
 
@@ -562,15 +782,19 @@ query <- paste0(
   "
   with tmp as (
   select a.id, round(a.forecast_base + ((b.pcchange/100) * a.forecast_base)) as forecast_uplift
-  from model.proposed_stations a
+  from ",
+  schema,
+  ".proposed_stations a
   left join data.regional_uplifts b
   on a.region = b.region
   )
-  update model.proposed_stations a set forecast_uplift = tmp.forecast_uplift from tmp
-  where a.id = tmp.id;
+  update ",
+  schema,
+  ".proposed_stations a set forecast_uplift = tmp.forecast_uplift from tmp
+  where a.id = tmp.id
   "
 )
-getQuery(con, query)
+sdr_dbExecute(con, query)
 
 
 # Abstraction analysis----------------------------------------------------------
@@ -581,10 +805,17 @@ getQuery(con, query)
 # position of the delimited file!
 
 if (is.character(unique(stations$abstract))) {
+  flog.info("starting abstraction analysis")
+
   # For before analysis we only need to consider unique crscodes (from all
   # proposed stations) where abstraction analysis is required.
   # So lets get a vector of those
   abs_stations <- unique(unlist(strsplit(stations$abstract, ",")))
+
+  flog.info(paste0(
+    "Unique crscodes requiring a BEFORE abstraction analysis: ",
+    paste0(abs_stations, collapse = ", "))
+  )
 
   # Get easting an northings for these stations
   query <- paste0(
@@ -595,14 +826,17 @@ if (is.character(unique(stations$abstract))) {
     ")
     "
     )
-  abs_stations <- getQuery(con, query)
+  abs_stations <- sdr_dbGetQuery(con, query)
 
   # Create the abstraction results table
 
   query <- paste0(
-    "create table model.abstraction_results (
+    "create table ",
+    schema,
+    ".abstraction_results (
     id serial primary key,
     proposed text,
+    proposed_name text,
     at_risk text,
     prwpop_before int,
     prwpop_after int,
@@ -615,84 +849,126 @@ if (is.character(unique(stations$abstract))) {
     catchment_after json
   )"
   )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   # populate abstraction results table with proposed (or 'concurrent') and at_risk stations
   if (isolation) {
     for (proposed in stations$crscode) {
       for (at_risk in unlist(strsplit(stations$abstract[stations$crscode == proposed], ",")))
       {
+        flog.info(
+          paste0(
+            "require result for, proposed station: ",
+            proposed,
+            " and at risk station: ",
+            at_risk
+          )
+        )
+
         query <- paste0(
-          "insert into model.abstraction_results (id, proposed, at_risk) values (default,'",
+          "insert into ",
+          schema,
+          ".abstraction_results (id, proposed, proposed_name, at_risk) values (default,'",
           proposed,
           "','",
+          stations$name[stations$crscode == proposed],
+          "','",
           at_risk,
-          "');"
+          "')"
         )
-        getQuery(con, query)
+        sdr_dbExecute(con, query)
       }
     }
   } else {
     for (at_risk in unlist(strsplit(stations$abstract[1], ",")))
     {
+      flog.info(paste0(
+        "require result for concurrent stations, and at risk station: ",
+        at_risk
+      ))
+
       query <- paste0(
-        "insert into model.abstraction_results (id, proposed, at_risk) values (default,'concurrent','",
+        "insert into ",
+        schema,
+        ".abstraction_results (id, proposed, at_risk) values (default,'concurrent','",
         at_risk,
-        "');"
+        "')"
       )
-      getQuery(con, query)
+      sdr_dbExecute(con, query)
     }
   }
 
   # populate with entsexist1718 - how to handle this going forward?
 
   query <- paste0(
-    "	update model.abstraction_results a
+    "	update ",
+    schema,
+    ".abstraction_results a
     set entsexits1718 = b.entsexits1718
     from data.stations b
-    where  a.at_risk = b.crscode	"
+    where  a.at_risk = b.crscode"
   )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
 
-  # create the before choicesets and probability table for each unique abstraction station
+  # create the before choicesets and probability tables for each unique abstraction station
+
+  flog.info("starting to create BEFORE choicesets and probability tables ...")
 
   for (crscode in abs_stations$crscode) {
     # generate the choiceset for that crs
+
+    flog.info(paste0("calling sdr_generate_choicesets for: ", crscode))
+
     choicesets <-
-      sdr_generate_choicesets(crscode, existing = TRUE)
+      sdr_generate_choicesets(schema, crscode, existing = TRUE)
 
     # Generate probability table
-    sdr_generate_probability_table(choicesets, paste0(tolower(crscode), "_before_abs"))
+
+    flog.info(paste0("calling sdr_generate_probability_table for: ", crscode))
+
+    sdr_generate_probability_table(schema, choicesets, paste0(tolower(crscode), "_before_abs"))
 
     # No frequency group adustments are probably needed for the before situation.
     # Is this valid? I think so. Confirm.
 
     # calculate probabilities
-    sdr_calculate_probabilities(paste0(tolower(crscode),
-                                       "_before_abs"))
+
+    flog.info(paste0("calling sdr_calculate_probabilities for: ", crscode))
+
+    sdr_calculate_probabilities(schema, paste0(tolower(crscode),
+                                               "_before_abs"))
 
 
     # get probability weighted population
 
+    flog.info(paste0(
+      "calling sdr_calculate_prweighted_population for: ",
+      crscode
+    ))
+
     prweighted_pop_before <-
-      sdr_calculate_prweighted_population(crscode, paste0(tolower(crscode),
-                                                          "_before_abs"))
+      sdr_calculate_prweighted_population(schema, crscode, paste0(tolower(crscode),
+                                                                  "_before_abs"))
 
     # update abstraction_results table for any where at_risk == crscode
 
     query <- paste0(
-      "update model.abstraction_results set prwpop_before = ",
+      "update ",
+      schema,
+      ".abstraction_results set prwpop_before = ",
       prweighted_pop_before,
       " where at_risk = '",
       crscode,
       "'"
     )
-    getQuery(con, query)
+    sdr_dbExecute(con, query)
 
   }
 
   # Create the after choicesets - depends on whether isolation or concurrent method
+
+  flog.info("starting to create AFTER choicesets and probability tables ...")
 
   # For isolation we loop through each proposed station and then use a nested loop for
   # each of the stations where abstraction analysis is required
@@ -701,16 +977,38 @@ if (is.character(unique(stations$abstract))) {
     for (crscode in stations$crscode) {
       for (abs_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
       {
-        choicesets <-
-          sdr_generate_choicesets(crscode, existing = FALSE, abs_crs = abs_crscode)
+        flog.info(
+          paste0(
+            "calling sdr_generate_choicesets, at risk station: ",
+            abs_crscode,
+            ", proposed station: ",
+            crscode
+          )
+        )
 
+        choicesets <-
+          sdr_generate_choicesets(schema,
+                                  crscode,
+                                  existing = FALSE,
+                                  abs_crs = abs_crscode)
+
+        flog.info(
+          paste0(
+            "calling sdr_generate_probability_table, at risk station: ",
+            abs_crscode,
+            ", proposed station: ",
+            crscode
+          )
+        )
 
         # Generate probability table
-        sdr_generate_probability_table(choicesets, paste0(
-          tolower(abs_crscode),
-          "_after_abs_",
-          tolower(crscode)
-        ))
+        sdr_generate_probability_table(schema,
+                                       choicesets,
+                                       paste0(
+                                         tolower(abs_crscode),
+                                         "_after_abs_",
+                                         tolower(crscode)
+                                       ))
 
         # make frequency group adjustments if required
         if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
@@ -719,17 +1017,38 @@ if (is.character(unique(stations$abstract))) {
                                      "group_crs"],
                        stringsAsFactors = FALSE)
 
-          sdr_frequency_group_adjustment(df, paste0(
-            tolower(abs_crscode),
-            "_after_abs_",
-            tolower(crscode)
-          ))
+          flog.info(
+            paste0(
+              "calling sdr_frequency_group_adjustment, at risk station: ",
+              abs_crscode,
+              ", proposed station: ",
+              crscode
+            )
+          )
+
+          sdr_frequency_group_adjustment(schema,
+                                         df,
+                                         paste0(
+                                           tolower(abs_crscode),
+                                           "_after_abs_",
+                                           tolower(crscode)
+                                         ))
 
         } # end if freqgrp
 
 
         # calculate probabilities
-        sdr_calculate_probabilities(paste0(
+
+        flog.info(
+          paste0(
+            "call sdr_calculate_probabilities, at risk station: ",
+            abs_crscode,
+            ", proposed station: ",
+            crscode
+          )
+        )
+
+        sdr_calculate_probabilities(schema, paste0(
           tolower(abs_crscode),
           "_after_abs_",
           tolower(crscode)
@@ -738,8 +1057,18 @@ if (is.character(unique(stations$abstract))) {
 
         # get probability weighted population
 
+        flog.info(
+          paste0(
+            "call sdr_calculate_prweighted_population, at risk station: ",
+            abs_crscode,
+            ", proposed station: ",
+            crscode
+          )
+        )
+
         prweighted_pop_after <-
-          sdr_calculate_prweighted_population(abs_crscode,
+          sdr_calculate_prweighted_population(schema,
+                                              abs_crscode,
                                               paste0(
                                                 tolower(abs_crscode),
                                                 "_after_abs_",
@@ -749,7 +1078,9 @@ if (is.character(unique(stations$abstract))) {
         # update abstraction_results table
 
         query <- paste0(
-          "update model.abstraction_results
+          "update ",
+          schema,
+          ".abstraction_results
           set prwpop_after = ",
           prweighted_pop_after,
           " where proposed = '",
@@ -758,10 +1089,12 @@ if (is.character(unique(stations$abstract))) {
           abs_crscode,
           "'"
         )
-        getQuery(con, query)
+        sdr_dbExecute(con, query)
 
         query <- paste0(
-          "update model.abstraction_results
+          "update ",
+          schema,
+          ".abstraction_results
           set change = prwpop_after - prwpop_before,
           pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
           where proposed = '",
@@ -770,7 +1103,7 @@ if (is.character(unique(stations$abstract))) {
           abs_crscode,
           "'"
         )
-        getQuery(con, query)
+        sdr_dbExecute(con, query)
 
       }
     }
@@ -782,14 +1115,34 @@ if (is.character(unique(stations$abstract))) {
     for (abs_crscode in unlist(strsplit(stations$abstract[1], ","))) {
       # for each abs_crscode we pass all the proposed stations to the function
       # as all would be present in the after situation in concurrent mode
+
+      flog.info(
+        paste0(
+          "call sdr_generate_choicesets, at risk station: ",
+          abs_crscode,
+          ", proposed stations: ",
+          paste0(stations$crscode, collapse = ", ")
+        )
+      )
+
       choicesets <-
-        sdr_generate_choicesets(stations$crscode,
+        sdr_generate_choicesets(schema,
+                                stations$crscode,
                                 existing = FALSE,
                                 abs_crs = abs_crscode)
 
+      flog.info(
+        paste0(
+          "call sdr_generate_probability_table, at risk station: ",
+          abs_crscode,
+          ", proposed stations: (concurrent)"
+        )
+      )
 
       # Generate probability table
-      sdr_generate_probability_table(choicesets, paste0(tolower(abs_crscode), "_after_abs_concurrent"))
+      sdr_generate_probability_table(schema,
+                                     choicesets,
+                                     paste0(tolower(abs_crscode), "_after_abs_concurrent"))
 
 
       # Make frequency group adjustments if required.
@@ -803,42 +1156,73 @@ if (is.character(unique(stations$abstract))) {
                                    "group_crs"],
                      stringsAsFactors = FALSE)
 
-        sdr_frequency_group_adjustment(df, paste0(tolower(abs_crscode),
-                                                  "_after_abs_concurrent"))
+        flog.info(
+          paste0(
+            "call sdr_frequency_group_adjustment, at risk station: ",
+            abs_crscode,
+            ", proposed stations: (concurrent)"
+          )
+        )
+
+        sdr_frequency_group_adjustment(schema, df, paste0(tolower(abs_crscode),
+                                                          "_after_abs_concurrent"))
 
       }
 
       # calculate probabilities
-      sdr_calculate_probabilities(paste0(tolower(abs_crscode),
-                                         "_after_abs_concurrent"))
+
+      flog.info(
+        paste0(
+          "call sdr_calculate_probabilities, at risk station: ",
+          abs_crscode,
+          ", proposed stations: (concurrent)"
+        )
+      )
+
+      sdr_calculate_probabilities(schema, paste0(tolower(abs_crscode),
+                                                 "_after_abs_concurrent"))
 
       # get probability weighted population
 
+      flog.info(
+        paste0(
+          "call sdr_calculate_prweighted_population, at risk station: ",
+          abs_crscode,
+          ", proposed stations: (concurrent)"
+        )
+      )
+
       prweighted_pop_concurrent <-
-        sdr_calculate_prweighted_population(abs_crscode, paste0(tolower(abs_crscode),
-                                                                "_after_abs_concurrent"))
+        sdr_calculate_prweighted_population(schema,
+                                            abs_crscode,
+                                            paste0(tolower(abs_crscode),
+                                                   "_after_abs_concurrent"))
 
       # update abstraction_results table
 
       query <- paste0(
-        "update model.abstraction_results
+        "update ",
+        schema,
+        ".abstraction_results
         set prwpop_after = ",
         prweighted_pop_concurrent,
         " where proposed = 'concurrent' and at_risk = '",
         abs_crscode,
         "'"
       )
-      getQuery(con, query)
+      sdr_dbExecute(con, query)
 
       query <- paste0(
-        "update model.abstraction_results
+        "update ",
+        schema,
+        ".abstraction_results
         set change = prwpop_after - prwpop_before,
         pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
         where proposed = 'concurrent' and at_risk = '",
         abs_crscode,
         "'"
       )
-      getQuery(con, query)
+      sdr_dbExecute(con, query)
 
 
     }
@@ -847,14 +1231,20 @@ if (is.character(unique(stations$abstract))) {
   # Calculate actual change and percent change between before and after situation
 
   query <- paste0(
-    "update model.abstraction_results
+    "update ",
+    schema,
+    ".abstraction_results
     set adj_trips = round(entsexits1718 + ((pc_change / 100) * entsexits1718))"
   )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
-  query <- paste0("update model.abstraction_results
-                  set trips_change = adj_trips - entsexits1718")
-  getQuery(con, query)
+  query <- paste0(
+    "update ",
+    schema,
+    ".abstraction_results
+    set trips_change = adj_trips - entsexits1718"
+  )
+  sdr_dbExecute(con, query)
 
 
   # Generate before and after GeoJSON catchments
@@ -864,9 +1254,13 @@ if (is.character(unique(stations$abstract))) {
     # These are in abs_stations
 
     for (crscode in abs_stations$crscode) {
-      sdr_create_json_catchment("abstraction",
+
+      flog.info("calling sdr_create_json_catchment for BEFORE catchment")
+
+      sdr_create_json_catchment(schema,
+                                "abstraction",
                                 crscode,
-                                paste0(tolower(crscode), "_before_abs"))
+                                paste0(tolower(crscode), "_before_abs"), tolerance = 2)
     }
 
     # generate after catchment
@@ -874,7 +1268,10 @@ if (is.character(unique(stations$abstract))) {
     for (crscode in stations$crscode) {
       for (atrisk_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
       {
+        flog.info("calling sdr_create_json_catchment for AFTER catchment")
+
         sdr_create_json_catchment(
+          schema,
           "abstraction",
           atrisk_crscode,
           paste0(
@@ -882,7 +1279,7 @@ if (is.character(unique(stations$abstract))) {
             "_after_abs_",
             tolower(crscode)
           ),
-          crscode
+          crscode, tolerance = 2
         )
       }
     }
@@ -892,24 +1289,27 @@ if (is.character(unique(stations$abstract))) {
     # These are in abs_stations
 
     for (crscode in abs_stations$crscode) {
-      sdr_create_json_catchment("abstraction",
+      flog.info("calling sdr_create_json_catchment for BEFORE catchment")
+
+      sdr_create_json_catchment(schema,
+                                "abstraction",
                                 crscode,
-                                paste0(tolower(crscode), "_before_abs"))
+                                paste0(tolower(crscode), "_before_abs"), tolerance = 2)
     }
 
     # generate after catchment
 
-    for (crscode in stations$crscode) {
       for (atrisk_crscode in unlist(strsplit(stations$abstract[1], ","))) {
+        flog.info("calling sdr_create_json_catchment for AFTER catchment")
+
         sdr_create_json_catchment(
+          schema,
           "abstraction",
           atrisk_crscode,
           paste0(tolower(atrisk_crscode), "_after_abs_concurrent"),
-          "concurrent"
+          "concurrent", tolerance = 2
         )
       }
-
-    }
   } # end generate before and after GeoJSON catchments.
 
 
@@ -918,5 +1318,8 @@ if (is.character(unique(stations$abstract))) {
 
 # Closing actions---------------------------------------------------------------
 
+flog.info("tidying up")
 
 stopCluster(cl)
+
+flog.info("model finished")

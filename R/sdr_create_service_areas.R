@@ -5,18 +5,18 @@
 #' service area geometry is written to the specified database table in the
 #' specified database schema.
 #'
+#' @param schema A text string for the database schema name.
 #' @param df A dataframe with a column called "location" which has easting and
 #' northing of the station location.
 #' @param sa A vector of integer values for the required service areas. Should
 #' be in metres when cost is distance and minutes when cost is time.
-#' @param schema A text string for the database schema name.
 #' @param table A text string for the database table name.
 #' @param cost A text string, either "len" for a distance-based service area or
 #' "time" for a time-based service area. Default is "len".
 #' @param target The target percent of area of convex hull that ST_ConvexHull
 #' will try to approach before giving up or exiting. Default is 0.9.
 #' @export
-sdr_create_service_areas <- function(df, sa, schema, table, cost = "len", target = 0.9) {
+sdr_create_service_areas <- function(schema, df, sa, table, cost = "len", target = 0.9) {
 
 # set number of records
 total_stations <- nrow(df)
@@ -47,7 +47,7 @@ for (i in sa) {
       column_name,
       " geometry(Polygon,27700);"
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   ## Note the pid provided in the virtual node sql to pgr_withpointsdd must be negative
   ## for the virtual nodes to be included when searching for nodes within driving distance.
@@ -57,6 +57,9 @@ for (i in sa) {
 
   # Begin the stations loop j
   for (j in 1:total_stations) {
+
+    futile.logger::flog.info(paste0("creating ", column_name, " for ", df$crscode[j]))
+
     query <- paste0(
       "with tmp as
       (
@@ -88,7 +91,7 @@ for (i in sa) {
       df$crscode[j] ,
       "';"
     )
-    getQuery(con, query)
+    sdr_dbExecute(con, query)
 
     # check for null service area returned  - a potential problem with ST_ConcaveHull with
     # target < 1
@@ -99,11 +102,13 @@ for (i in sa) {
         "select location from " , paste0(schema, '.', table), " where ", column_name, " is null;"
       )
 
-    stations_null <- getQuery(con, query)
+    stations_null <- sdr_dbGetQuery(con, query)
 
     total_null <- nrow(stations_null) # set number of records
 
     if (total_null > 0) {
+
+      futile.logger::flog.info(paste0("null returned for ", column_name, " for ", df$crscode[j], ": re-running with target = 1"))
 
       query <- paste0(
         "with tmp as
@@ -136,7 +141,7 @@ for (i in sa) {
         df$crscode[j] ,
         "';"
       )
-      getQuery(con, query)
+      sdr_dbExecute(con, query)
 
     }
 

@@ -6,7 +6,7 @@
 #'
 #' If existing is set to \code{FALSE} then the crscodes in \code{crs} must be proposed
 #' stations. The function will obtain the 60 minute service area geometry from the
-#' model.proposed_stations table. If there is more than one crscode in \code{crs} then
+#' modelschema.proposed_stations table. If there is more than one crscode in \code{crs} then
 #' st_union will be applied to the individual service area geometries to create a
 #' single merged 60 minute service area (this is used when the concurrent mode has
 #' been selected for the model run).
@@ -29,21 +29,22 @@
 #'
 #' The function submits db queries which rely on several pgRouting wrapper functions that must be
 #' located in the openroads schema: \code{create_pgr_vnodes},
-#' \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints}, and
-#' \code{sdr_pc_station_withpoints_nobbox}.
+#' \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints},
+#' \code{sdr_pc_station_withpoints_nobbox}, and \code{bbox_pgr_withpointscost}.
 #'
-#' Two views are created for use by these functions. The first is model.centroidnodes
+#' Two views are created for use by these functions. The first is modelschema.centroidnodes
 #' which is a union of virtual nodes for the proposed stations (which are created in the query)
-#' and virtual nodes for existing stations. The second is model.stations which is a union of
-#' stations from data.stations and model.proposed_stations containing the distance-based
+#' and virtual nodes for existing stations. The second is modelschema.stations which is a union of
+#' stations from data.stations and modelschema.proposed_stations containing the distance-based
 #' service areas used in identfying the nearest 10 stations to each postcode.
 #'
 #' For maximum flexibility to also use this function for abstraction analysis
 #' without code repetition, it should be noted that the union queries are
 #' used even when \code{existing} is set to \code{TRUE} and the crscode in \code{crs} is
 #' an existing station. In this case there will be no match with the stations in
-#' model.proposed_stations and that part of the union query will simply return null.
+#' modelschema.proposed_stations and that part of the union query will simply return null.
 #'
+#' @param schema A text string for the database schema name.
 #' @param crs A character vector of the crscode(s) of the station(s)
 #' for which a set of postcode choicesets is required.
 #' @param existing Logical. Indicates whether the station crscodes contained in
@@ -55,7 +56,7 @@
 #' by distance.
 #' @importFrom foreach %dopar%
 #' @export
-sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
+sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NULL ) {
 
   # Set which station the set of postcode choicesets is required for
   # This will be the content of crs, or abs_crs if it is specified.
@@ -65,16 +66,22 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
     pc_crs = abs_crs
   }
 
+  futile.logger::flog.info(paste0("Set of postcode choice sets is required for: ", paste0(pc_crs, collapse = ", ")))
+
   # Set the table to be used to get the service area geometry.
-  # If existing is TRUE always use model.proposed_stations. Otherwise
+  # If existing is TRUE always use modelschema.proposed_stations. Otherwise
   # it depends on whether abs_crs is specified or not.
   if (existing == TRUE) {
     pc_table = "data.stations"
   } else if (is.null(abs_crs)) {
-    pc_table = "model.proposed_stations"
+    pc_table = paste0(schema, ".proposed_stations")
   } else {
     pc_table = "data.stations"
   }
+
+  futile.logger::flog.info(paste0("Using service area geometry from: ", pc_table))
+
+  futile.logger::flog.info(paste0("Getting postcodes within 60 minute service area of: ", paste0(pc_crs, collapse = ", ")))
 
   # Get postcodes within the applicable 60 minute service area
   query <- paste0(
@@ -93,7 +100,8 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
     data.pc_pop_2011 a, sa where st_within(a.geom, sa.geom)
     "
     )
-    postcodes <- getQuery(con, query)
+    postcodes <- sdr_dbGetQuery(con, query)
+
 
 
   # Need to create virtual nodes for new stations.
@@ -105,8 +113,10 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
   # then select the station and relevant postcode nodes from openroads.centroidnodes;
   # then union all select the virtual node information from tmp.
 
+  futile.logger::flog.info("creating virtual nodes table")
+
   query <- paste0(
-    "create or replace view model.centroidnodes as
+    "create or replace view ", schema, ".centroidnodes as
     with tmp as (
     select
     d.id,
@@ -117,8 +127,7 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
     f.fraction :: double precision as frac,
     f.closest_node as closest_real_node,
     f.n_geom
-    from
-    model.proposed_stations as d,
+    from ", schema, ".proposed_stations as d,
     lateral openroads.create_pgr_vnodes ( $$ select id, source, target, the_geom as geom from openroads.roadlinks$$, array [ d.location_geom ], 1000 ) f
     where crscode in (",
     paste("'", crs, "'", sep = "", collapse = ",")
@@ -159,11 +168,16 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
     tmp
     "
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
+
+
+  # create view of existing and proposed station(s)
+
+  futile.logger::flog.info(paste0("creating stations view for existing stations and: ", paste0(crs, collapse = ", ")))
 
   query <- paste0(
     "
-    create or replace view model.stations as
+    create or replace view ", schema, ".stations as
     select crscode,
     name,
     location_geom,
@@ -190,16 +204,18 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
     service_area_60km,
     service_area_80km,
     service_area_105km
-    from model.proposed_stations
+    from ", schema, ".proposed_stations
     where crscode in (",
     paste("'", crs, "'", sep = "", collapse = ", ")
     ,
     ")
     "
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   # generate choicesets using parallel processing
+
+  futile.logger::flog.info(paste0("starting parallel processing to generate the choicesets for ", nrow(postcodes), " postcodes"))
 
   df <- foreach::foreach(i=postcodes$postcode, .noexport="con", .packages=c("DBI", "RPostgreSQL", "dplyr"), .combine = 'rbind') %dopar%
   {
@@ -207,13 +223,13 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
     query <- paste0(
       "
       select postcode, crscode, distance from openroads.sdr_crs_pc_nearest_stationswithpoints('",
-      i,
+      schema, "', '", i,
       "', '",
-      paste (crs, sep = "", collapse = ", "),
+      paste(crs, sep = "", collapse = ", "),
       "', 1000, 0.5)
       "
       )
-    nearestx <- getQuery(con, query)
+    nearestx <- sdr_dbGetQuery(con, query)
 
     if (nrow(nearestx) > 0) {
 
@@ -224,12 +240,12 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
         query <- paste0(
           "
           select distance from openroads.sdr_pc_station_withpoints('"
-          , nearestx$postcode[j],
+          , schema, "', '", nearestx$postcode[j],
           "', '", nearestx$crscode[j],
           "', 25000, 1)
           "
           )
-        d <- getQuery(con, query)
+        d <- sdr_dbGetQuery(con, query)
         # check if a distance is returned
         if (nrow(d) > 0) {
           nearestx$distance[j] <- d$distance
@@ -238,12 +254,12 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
           query <- paste0(
             "
           select distance from openroads.sdr_pc_station_withpoints_nobbox('"
-            , nearestx$postcode[j],
+            , schema, "', '", nearestx$postcode[j],
             "', '", nearestx$crscode[j],
             "')
           "
           )
-          d <- getQuery(con, query)
+          d <- sdr_dbGetQuery(con, query)
           # just in case still no result trap and use -9999
           # how to deal with this??
           nearestx$distance[j] <- ifelse(nrow(d) > 0, d$distance, -9999)
@@ -263,9 +279,37 @@ sdr_generate_choicesets <- function(crs, existing = FALSE , abs_crs = NULL ) {
 
   # remove rows for any postcodes where none of the crscodes are in the choiceset
 
+  futile.logger::flog.info(paste0("Set of choicesets generated for: ", paste0(pc_crs, collapse = ", ")))
+  futile.logger::flog.info(paste0("Rows: ", nrow(df)))
+  futile.logger::flog.info(paste0("removing all rows for any postcode where none of: ", paste0(pc_crs, collapse = ", ")))
+
   df <- df %>%
     dplyr::group_by(postcode) %>%
     dplyr::filter(any(crscode %in% pc_crs))
+
+
+  futile.logger::flog.info(paste0("Rows: ", nrow(df)))
+  futile.logger::flog.info(paste0("Unique postcodes: ", length(unique(df$postcode))))
+
+  # log average choice set size
+  futile.logger::flog.info(paste0("average choiceset size: ",
+    df %>%
+      dplyr::summarise(number = n()) %>%
+      dplyr::summarise(mean(number))
+  ))
+
+  futile.logger::flog.info(paste0("min choiceset size: ",
+                                  df %>%
+                                    dplyr::summarise(number = n()) %>%
+                                    dplyr::summarise(min(number))
+  ))
+
+  futile.logger::flog.info(paste0("max choiceset size: ",
+                                  df %>%
+                                    dplyr::summarise(number = n()) %>%
+                                    dplyr::summarise(max(number))
+  ))
+
   df <- dplyr::ungroup(df)
 
   return(df)

@@ -14,8 +14,8 @@ Imports:
     dplyr,
     tidyr,
     foreach,
-    parallel,
-    doParallel,
-    RPostgreSQL,
-    magrittr
+    RPostgres,
+    magrittr,
+    futile.logger,
+    stringr
 RoxygenNote: 6.1.1

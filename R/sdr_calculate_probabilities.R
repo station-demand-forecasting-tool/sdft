@@ -3,12 +3,13 @@
 #' Calculates the probability of each station being chosen within the postcode choicesets
 #' contained in the specified probability table for the proposed station (isolation)
 #' or stations (concurrent). The required columns are created in the table.
+#' @param schema A text string for the database schema name.
 #' @param tablesuffix The suffix of the probability table - either crscode
 #' (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
 
 
-sdr_calculate_probabilities <- function(tablesuffix) {
+sdr_calculate_probabilities <- function(schema, tablesuffix) {
 
   # --------+--------------------------------------------------------------------
   #         |                  Standard            Prob.      95% Confidence
@@ -37,7 +38,7 @@ sdr_calculate_probabilities <- function(tablesuffix) {
 
   query <-
     paste(
-      "ALTER TABLE model.probability_",
+      "ALTER TABLE ", schema, ".probability_",
       tolower(tablesuffix),
       "
       ADD COLUMN te19_expv numeric,
@@ -50,13 +51,13 @@ sdr_calculate_probabilities <- function(tablesuffix) {
   query <- gsub(pattern = '\\s',
                 replacement = " ",
                 x = query)
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   #calculate probability
 
   query <-
     paste0(
-      "UPDATE model.probability_",
+      "UPDATE ", schema, ".probability_",
       tolower(tablesuffix),
       "
       SET te19_expv =
@@ -72,28 +73,28 @@ sdr_calculate_probabilities <- function(tablesuffix) {
       )
       "
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   query <-
     paste0(
-      "UPDATE model.probability_",
+      "UPDATE ", schema, ".probability_",
       tolower(tablesuffix),
       " SET te19_sum_expv = b.sumexpv from
       (
-      SELECT id, (sum(te19_expv) OVER (PARTITION BY postcode)) as sumexpv FROM model.probability_",
+      SELECT id, (sum(te19_expv) OVER (PARTITION BY postcode)) as sumexpv FROM ", schema, ".probability_",
       tolower(tablesuffix),
       "
       ) as b
-      where b.id = model.probability_",
+      where b.id = ", schema, ".probability_",
       tolower(tablesuffix),
       ".id;
       "
       )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   query <-
     paste(
-      "UPDATE model.probability_",
+      "UPDATE ", schema, ".probability_",
       tolower(tablesuffix),
       "
       SET te19_prob =
@@ -101,41 +102,41 @@ sdr_calculate_probabilities <- function(tablesuffix) {
       ",
       sep = ""
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
  # create indexes
 
   query <-
     paste(
       "
-      create index on model.probability_",
+      create index on ", schema, ".probability_",
       tolower(tablesuffix),
       " (crscode)
       ",
       sep = ""
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   query <-
     paste(
       "
-      create index on model.probability_",
+      create index on ", schema, ".probability_",
       tolower(tablesuffix),
       " (postcode)
       ",
       sep = ""
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
   query <-
     paste(
       "
-      create index on model.probability_",
+      create index on ", schema, ".probability_",
       tolower(tablesuffix),
       " (distance)
       ",
       sep = ""
     )
-  getQuery(con, query)
+  sdr_dbExecute(con, query)
 
 }
