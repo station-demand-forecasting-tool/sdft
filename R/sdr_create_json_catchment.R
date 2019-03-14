@@ -28,8 +28,9 @@
 #' @param cutoff Numeric. Defines the threshold probability below which to exclude a postcode from
 #' the catchment. Default is 0.01 (i.e. any postcodes with a probability of \eqn{>= 0.01}
 #' for the station defined in \code{crs} will be included in the catchment).
+#' @param tolerance numeric. Tolerance for ST_SimplifyPreserveTopology. Default 0.1.
 #' @export
-sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = NULL, cutoff = 0.01) {
+sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = NULL, cutoff = 0.01, tolerance = 0.1) {
 
 
 
@@ -67,7 +68,7 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
     from (
     select
     'Feature' as \"type\",
-    ST_AsGeoJSON(ST_Transform(b.geom, 4326)) :: json as \"geometry\",
+    ST_AsGeoJSON(ST_Transform(ST_SimplifyPreserveTopology(b.geom, ", tolerance, "), 4326)) :: json as \"geometry\",
     (
     select json_strip_nulls(row_to_json(t))
     from (

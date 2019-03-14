@@ -5,7 +5,7 @@
 \title{Creates a GeoJSON probabilistic catchment for a station}
 \usage{
 sdr_create_json_catchment(schema, type, crs, tablesuffix, abs_crs = NULL,
-  cutoff = 0.01)
+  cutoff = 0.01, tolerance = 0.1)
 }
 \arguments{
 \item{schema}{A text string for the database schema name.}
@@ -24,6 +24,8 @@ using concurrent mode). Only relevant if \code{type} is set to "abstraction". Wh
 \item{cutoff}{Numeric. Defines the threshold probability below which to exclude a postcode from
 the catchment. Default is 0.01 (i.e. any postcodes with a probability of \eqn{>= 0.01}
 for the station defined in \code{crs} will be included in the catchment).}
+
+\item{tolerance}{numeric. Tolerance for ST_SimplifyPreserveTopology. Default 0.1.}
 }
 \description{
 Creates a GeoJSON probabilistic catchment for a station. Includes a spatial
