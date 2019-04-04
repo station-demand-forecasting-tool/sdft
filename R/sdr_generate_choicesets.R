@@ -281,7 +281,7 @@ sdr_generate_choicesets <- function(schema, crs, existing = FALSE , abs_crs = NU
 
   futile.logger::flog.info(paste0("Set of choicesets generated for: ", paste0(pc_crs, collapse = ", ")))
   futile.logger::flog.info(paste0("Rows: ", nrow(df)))
-  futile.logger::flog.info(paste0("removing all rows for any postcode where none of: ", paste0(pc_crs, collapse = ", ")))
+  futile.logger::flog.info(paste0("Removing all rows for any postcode where none of: ", paste0(pc_crs, collapse = ", ")))
 
   df <- df %>%
     dplyr::group_by(postcode) %>%

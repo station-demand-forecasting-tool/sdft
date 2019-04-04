@@ -58,7 +58,7 @@ sdr_generate_probability_table <- function(schema, df, tablesuffix) {
     from ", schema, ".proposed_stations
     )
     UPDATE ", schema, ".probability_",
-    tolower(tablesuffix),
+    tablesuffix,
     " as a SET
     sqr_dist = round(cast(sqrt(distance/1000) as numeric),4),
     ln_dfreq = round(cast(ln(b.frequency) as numeric),4),
