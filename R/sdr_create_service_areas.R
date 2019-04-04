@@ -2,27 +2,34 @@
 #'
 #' Creates a distance or time based network service area around stations in
 #' the provided data frame using the pgRouting function \code{pgr_withpointsdd}. The
-#' service area geometry is written to the specified database table in the
-#' specified database schema.
+#' service area geometry is written to the specified database \code{table} in the
+#' specified database \code{schema}.The supplied \code{identifier} links the stations
+#' in the data frame and the database table.
 #'
 #' @param schema A text string for the database schema name.
-#' @param df A dataframe with a column called "location" which has easting and
-#' northing of the station location.
+#' @param df A dataframe with a column named "location"
+#' which has the easting and northing of the station location.
+#' @param identifier A text string which uniquely identifies
+#' a station in both the provided dataframe \emph{and} in the target \code{table}.
 #' @param sa A vector of integer values for the required service areas. Should
 #' be in metres when cost is distance and minutes when cost is time.
-#' @param table A text string for the database table name.
+#' @param table A text string for the target database table name.
 #' @param cost A text string, either "len" for a distance-based service area or
 #' "time" for a time-based service area. Default is "len".
 #' @param target The target percent of area of convex hull that ST_ConvexHull
 #' will try to approach before giving up or exiting. Default is 0.9.
 #' @export
-sdr_create_service_areas <- function(schema, df, sa, table, cost = "len", target = 0.9) {
+sdr_create_service_areas <- function(schema, df, identifier, sa, table, cost = "len", target = 0.9) {
 
 # set number of records
 total_stations <- nrow(df)
 
+
+
+
 # begin the service area loop i
-for (i in sa) {
+df <- foreach::foreach(i=sa, .noexport="con", .packages=c("DBI", "RPostgreSQL", "dplyr")) %dopar%
+{
 
   if (cost == "len") {
     column_name <- paste0("service_area_", i / 1000, "km")
@@ -58,8 +65,7 @@ for (i in sa) {
   # Begin the stations loop j
   for (j in 1:total_stations) {
 
-    futile.logger::flog.info(paste0("creating ", column_name, " for ", df$crscode[j]))
-
+    futile.logger::flog.info(paste0("creating ", column_name, " for ", df[j, paste0(identifier)]))
     query <- paste0(
       "with tmp as
       (
@@ -87,8 +93,8 @@ for (i in sa) {
       column_name ,
       " = sa.geom  FROM (
       SELECT 1 as id, ST_ConcaveHull(ST_Collect(the_geom), ", target, " ) as geom from tmp) as sa
-      WHERE crscode = '",
-      df$crscode[j] ,
+      WHERE ", identifier, " = '",
+      df[j, paste0(identifier)] ,
       "';"
     )
     sdr_dbExecute(con, query)
@@ -99,7 +105,7 @@ for (i in sa) {
 
     query <-
       paste0(
-        "select location from " , paste0(schema, '.', table), " where ", column_name, " is null and crscode = '", df$crscode[j], "'"
+        "select location from " , paste0(schema, '.', table), " where ", column_name, " is null and ", identifier, " = '", df[j, paste0(identifier)], "'"
       )
 
     stations_null <- sdr_dbGetQuery(con, query)
@@ -108,7 +114,7 @@ for (i in sa) {
 
     if (total_null > 0) {
 
-      futile.logger::flog.info(paste0("null returned for ", column_name, " for ", df$crscode[j], ": re-running with target = 1"))
+      futile.logger::flog.info(paste0("null returned for ", column_name, " for ", df[j, paste0(identifier)], ": re-running with target = 1"))
 
       query <- paste0(
         "with tmp as
@@ -137,8 +143,8 @@ for (i in sa) {
         column_name ,
         " = sa.geom  FROM (
       SELECT 1 as id, ST_ConcaveHull(ST_Collect(the_geom), 1) as geom from tmp) as sa
-      WHERE crscode = '",
-        df$crscode[j] ,
+      WHERE ", identifier, " = '",
+        df[j, paste0(identifier)] ,
         "';"
       )
       sdr_dbExecute(con, query)
