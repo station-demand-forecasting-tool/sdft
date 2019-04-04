@@ -1,5 +1,3 @@
-#Rscript main.r > output.txt
-
 # Preliminaries-----------------------------------------------------------------
 
 library(stationdemandr)
@@ -156,7 +154,7 @@ if (isolation == FALSE) {
 
 if (isolation) {
   # if remove columns that are allowed to change
-  if (nrow(stations %>% select(-id, -freq, -freqgrp, -carsp) %>%
+  if (nrow(stations %>% select(-id,-freq,-freqgrp,-carsp) %>%
            # distinct should only return as many rows as there are unique station names
            distinct()) != length(unique(stations$name))) {
     msg <-
@@ -382,14 +380,15 @@ flog.info("exogenous table successfully created")
 # create distance-based service areas used in identifying nearest 10 stations to
 # each postcode centroid
 
-flog.info("starting to create station service areas ... ")
+flog.info("starting to create station service areas")
 
 # Because there may be duplicate stations of the same name for sensitivity analysis
 # we create the service areas for each unique station name in a separate table and then
 # update the proposed_stations table from that. While a bit more complex this removes
 # unnecessary duplication of what can be a relatively slow process for the larger areas.
 
-unique_stations <- stations %>% distinct(name, .keep_all = TRUE) %>% select(name, location)
+unique_stations <-
+  stations %>% distinct(name, .keep_all = TRUE) %>% select(name, location)
 
 dbWriteTable(
   conn = con,
@@ -471,18 +470,27 @@ if (testing) {
 
 #distance-based
 for (i in c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000)) {
-    column_name <- paste0("service_area_", i / 1000, "km")
-query <-
+  column_name <- paste0("service_area_", i / 1000, "km")
+  query <-
     paste0(
-      "alter table ", schema, ".proposed_stations add column if not exists ",
+      "alter table ",
+      schema,
+      ".proposed_stations add column if not exists ",
       column_name,
       " geometry(Polygon,27700);"
     )
   sdr_dbExecute(con, query)
-query <-
+  query <-
     paste0(
-      "update ", schema, ".proposed_stations a set ", column_name, " = b.",
-      column_name, " from ", schema, ".station_sas b where a.name = b.name"
+      "update ",
+      schema,
+      ".proposed_stations a set ",
+      column_name,
+      " = b.",
+      column_name,
+      " from ",
+      schema,
+      ".station_sas b where a.name = b.name"
     )
   sdr_dbExecute(con, query)
 }
@@ -492,15 +500,24 @@ for (i in c(1, 60)) {
   column_name <- paste0("service_area_", i, "mins")
   query <-
     paste0(
-      "alter table ", schema, ".proposed_stations add column if not exists ",
+      "alter table ",
+      schema,
+      ".proposed_stations add column if not exists ",
       column_name,
       " geometry(Polygon,27700);"
     )
   sdr_dbExecute(con, query)
   query <-
     paste0(
-      "update ", schema, ".proposed_stations a set ", column_name, " = b.",
-      column_name, " from ", schema, ".station_sas b where a.name = b.name"
+      "update ",
+      schema,
+      ".proposed_stations a set ",
+      column_name,
+      " = b.",
+      column_name,
+      " from ",
+      schema,
+      ".station_sas b where a.name = b.name"
     )
   sdr_dbExecute(con, query)
 }
@@ -511,7 +528,7 @@ flog.info("station service area generation completed")
 
 # Generate probability tables---------------------------------------------------
 
-flog.info("starting to generate choice sets and probability tables ...")
+flog.info("starting to create choicesets and probability table(s)")
 
 if (isolation) {
   flog.info("method is isolation")
@@ -520,7 +537,7 @@ if (isolation) {
   duplicates <- stations$name[(anyDuplicated(stations$name))]
 
   # for any crscodes where station name is not duplicated; straightforward
-  for (crscode in stations$crscode[stations$name != duplicates]) {
+  for (crscode in stations$crscode[!(stations$name %in% duplicates)]) {
     flog.info(paste0(
       "calling sdr_generate_choicesets for: ",
       paste0(crscode, collapse = ", ")
@@ -711,7 +728,6 @@ query <- paste0("
 sdr_dbExecute(con, query)
 
 for (crscode in stations$crscode) {
-
   if (isolation) {
     flog.info("calling sdr_calculate_prweighted_population")
     prweighted_pop <-
@@ -767,7 +783,7 @@ for (crscode in stations$crscode) {
 
 # Generate forecasts------------------------------------------------------------
 
-flog.info("starting to generate forecasts ...")
+flog.info("generating forecasts")
 query <- paste0(
   "
   alter table ",
@@ -987,7 +1003,7 @@ if (is.character(unique(stations$abstract))) {
 
   # create the before choicesets and probability tables for each unique abstraction station
 
-  flog.info("starting to create BEFORE choicesets and probability tables ...")
+  flog.info("starting to create BEFORE choicesets and probability tables")
 
   for (crscode in abs_stations$crscode) {
     # generate the choiceset for that crs
@@ -1032,7 +1048,7 @@ if (is.character(unique(stations$abstract))) {
 
   # Create the after choicesets - depends on whether isolation or concurrent method
 
-  flog.info("starting to create AFTER choicesets and probability tables ...")
+  flog.info("starting to create AFTER choicesets and probability tables")
 
   # For isolation we loop through each proposed station and then use a nested loop for
   # each of the stations where abstraction analysis is required
