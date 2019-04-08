@@ -22,6 +22,7 @@ flog.appender(appender.file("sdr.log"))
 # set logging level
 flog.threshold("INFO")    # TRACE, DEBUG, INFO, WARN, ERROR, FATAL
 
+# capture R errors and warnings to be logged by futile.logger
 options(
   showWarnCalls = TRUE,
   showErrorCalls = TRUE,
@@ -41,12 +42,13 @@ options(
 # During testing set this variable to TRUE. This produces fake 60-minute
 # proposed station service areas which are actually only 5-minute service areas.
 testing <- TRUE
-flog.info(paste0("Testing mode: ", testing))
+flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 
 # Set up a database connection.
 # Using keyring package for storing database password in Windows credential store
 # to avoid exposing on GitHub. Amend as appropriate.
 
+checkdb <- try(
 con <-
   dbConnect(
     RPostgres::Postgres(),
@@ -55,14 +57,20 @@ con <-
     user = "postgres",
     password = key_get("postgres")
   )
+)
+if (class(checkdb) == "try-error") {
+  stop("Database connection has not been established")
+}
 
 # Set up parallel processing
-# Note this is only currently used in the sdr_generate_choicesets() function in
-# the foreach loop. Number of clusters is total available cores less two.
+# This is currently used in the sdr_create_service_areas() and
+# sdr_generate_choicesets() functions, in the foreach loop.
 
+# Number of clusters is total available cores less two.
 cl <- makeCluster(detectCores() - 2)
 registerDoParallel(cl)
 
+checkcl <- try(
 clusterEvalQ(cl, {
   library(DBI)
   library(RPostgres)
@@ -79,6 +87,17 @@ clusterEvalQ(cl, {
     )
   NULL
 })
+)
+if (class(checkcl) == "try-error") {
+  stop("clusterEvalQ failed")
+}
+
+# Get station crscodes from data.stations for later validation
+
+query <- paste0("
+                select crscode from data.stations
+                ")
+crscodes <- sdr_dbGetQuery(con, query)
 
 # Load configuration data-------------------------------------------------------
 
@@ -86,7 +105,7 @@ clusterEvalQ(cl, {
 config <-
   read.csv(file = "inst/example_input/config.csv",
            sep = ";",
-           stringsAsFactors = FALSE)
+           stringsAsFactors = FALSE, na.strings = c(""))
 
 
 # check for valid mode
@@ -107,10 +126,35 @@ if (grepl("^[a-z][a-z0-9_]{1,5}$", config$job_id, ignore.case = FALSE)) {
   schema <- config$job_id
 } else {
   msg <-
-    "database schema name uses config$job_id, first character must be lowercase a-z"
+    "database schema name uses config$job_id, but it is not in a valid format to be used
+  as a schema name."
   flog.fatal(msg)
   stop(msg)
 }
+
+# load frequency groups
+freqgroups <-
+  read.csv(file = "inst/example_input/freqgroups.csv",
+           sep = ";",
+           stringsAsFactors = FALSE)
+
+
+# check frequency group format is ok
+fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
+# check if all pairs match the required format
+if (isFALSE(all(sapply(fg_pairs, function(x) grepl("^[A-Z]{3}:[0-9]{1,}$", x), USE.NAMES = FALSE)))) {
+  stop("format of frequency groups is not correct")
+}
+
+# check crscodes in frequency groups are all valid
+# get the unique crscodes from pairs
+fg_crs <- unique(sapply(unlist(fg_pairs), function(x) sub(":.*", "", x), USE.NAMES = FALSE))
+# get the index for those not valid
+idx <- which(!(fg_crs %in% crscodes$crscode))
+if (length(idx > 0)) {
+  stop("The following frequency group crscodes are not valid : ", paste(fg_crs[idx], collapse = ", "))
+}
+
 
 flog.info("config.csv has been imported and checked")
 
@@ -121,7 +165,7 @@ flog.info("config.csv has been imported and checked")
 stations <-
   read.csv(file = "inst/example_input/stations.csv",
            sep = ";",
-           stringsAsFactors = FALSE)
+           stringsAsFactors = FALSE, na.strings = c(""))
 
 # check id is unique
 
@@ -131,28 +175,55 @@ if (anyDuplicated(stations$id) > 0) {
   stop(msg)
 }
 
+
+# check abstraction station format is correct, if not NA
+# i.e. check for CSV input of three uppercase characters separated by commas
+# (also allowing single crscode with no comma)
+abs_check <- sapply(na.omit(stations$abstract), function(x) grepl("^([A-Z]{3})(,[A-Z]{3})*$", x), USE.NAMES = FALSE)
+if (isFALSE(all(abs_check))) {
+  stop("abstraction stations are not provided in the correct format")
+}
+
+
+# check that abstraction stations are valid crscodes
+abs_crs <- unique(na.omit(unlist(strsplit(stations$abstract, ","))))
+# get the index for those not valid
+idx <- which(!(abs_crs %in% crscodes$crscode))
+if (length(idx > 0)) {
+  stop("The following abstraction group crscodes are not valid: ", paste(abs_crs[idx], collapse = ", "))
+}
+
+# check that frequency and number of parking spaces are integerish > 0
+
+if (isFALSE(testIntegerish(stations$freq, lower = 1, any.missing = FALSE))) {
+  stop("service frequency must be integer > 0")
+}
+
+if (isFALSE(testIntegerish(stations$carsp, lower = 1, any.missing = FALSE))) {
+  stop("parking spaces must be integer > 0")
+}
+
 # if concurrent
 # check name is unique
-# check abstraction string is same for all stations
+# check abstraction string is same for all stations (even if NA)
+# check same frequency group id is specified for every station (even if NA).
 
-if (isolation == FALSE) {
+if (isFALSE(isolation)) {
   if (anyDuplicated(stations$name) > 0) {
-    msg <- "station name must be unique for concurrent mode"
-    flog.fatal(msg)
-    stop(msg)
+    stop("station name must be unique for concurrent mode")
   }
   if (length(unique(stations$abstract)) > 1) {
-    msg <-
-      "defined abstraction stations must be identical for all stations in concurrent mode"
-    flog.fatal(msg)
-    stop(msg)
+    stop("defined abstraction stations must be identical for all stations in concurrent mode")
+  }
+  if (length(unique(stations$freqgrp)) > 1) {
+    stop("When using concurrent mode the same frequency group must be specified for every station")
   }
 }
 
 # if isolation
 # check that repeated station names only differ in id, freq, freqgrp, carsp
 
-if (isolation) {
+if (isTRUE(isolation)) {
   # if remove columns that are allowed to change
   if (nrow(stations %>% select(-id,-freq,-freqgrp,-carsp) %>%
            # distinct should only return as many rows as there are unique station names
@@ -609,7 +680,7 @@ if (isolation) {
     # make frequency group adjustments if required
     if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
       df <-
-        data.frame(fgrp = config[config$group_id == stations$freqgrp[stations$crscode == crscode],
+        data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == crscode],
                                  "group_crs"], stringsAsFactors = FALSE)
 
       flog.info(paste0("calling sdr_frequency_group_adjustment for: ",
@@ -641,11 +712,11 @@ if (isolation) {
 
   # make frequency group adjustments if required
   # must only be a single frequency group for concurrent treatment
-  # So we just check the first row for the group name and process once
+  # So we just check the first row isn't NA for the group name and process once
 
   if (!is.na(stations$freqgrp[1])) {
     df <-
-      data.frame(fgrp = config[config$group_id == stations$freqgrp[1], "group_crs"], stringsAsFactors = FALSE)
+      data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1], "group_crs"], stringsAsFactors = FALSE)
 
     flog.info("calling sdr_frequency_group_adjustment for concurrent")
     sdr_frequency_group_adjustment(schema, df, "concurrent")
@@ -890,17 +961,15 @@ sdr_dbExecute(con, query)
 # Abstraction analysis----------------------------------------------------------
 
 # Only process if abstraction analysis is required.
-# If unique value of abstract column is not a character then there are no
-# abstraction stations. Depends on the input file, assumes empty in this
-# position of the delimited file!
+# If unique value of abstract column is > 0 (omitting NAs)
 
-if (is.character(unique(stations$abstract))) {
+if (length(unique(na.omit(stations$abstract))) > 0) {
   flog.info("starting abstraction analysis")
 
   # For before analysis we only need to consider unique crscodes (from all
   # proposed stations) where abstraction analysis is required.
-  # So lets get a vector of those
-  abs_stations <- unique(unlist(strsplit(stations$abstract, ",")))
+  # So lets get a vector of those - ignoring NAs of course.
+  abs_stations <- unique(na.omit(unlist(strsplit(stations$abstract, ","))))
 
   flog.info(paste0(
     "Unique crscodes requiring a BEFORE abstraction analysis: ",
@@ -1093,7 +1162,7 @@ if (is.character(unique(stations$abstract))) {
         # make frequency group adjustments if required
         if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
           df <-
-            data.frame(fgrp = config[config$group_id == stations$freqgrp[stations$crscode == crscode],
+            data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == crscode],
                                      "group_crs"],
                        stringsAsFactors = FALSE)
 
@@ -1228,7 +1297,7 @@ if (is.character(unique(stations$abstract))) {
       # and process once
       if (!is.na(stations$freqgrp[1])) {
         df <-
-          data.frame(fgrp = config[config$group_id == stations$freqgrp[1],
+          data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1],
                                    "group_crs"],
                      stringsAsFactors = FALSE)
 
