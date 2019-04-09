@@ -12,6 +12,7 @@ library(DBI)
 library(futile.logger)
 library(checkmate)
 
+
 # delete existing log file
 if (file.exists("sdr.log")) {
   file.remove("sdr.log")
@@ -99,25 +100,96 @@ query <- paste0("
                 ")
 crscodes <- sdr_dbGetQuery(con, query)
 
-# Load configuration data-------------------------------------------------------
+# Load input data-------------------------------------------------------
+
+# file path
+
+path <- file.path("inst", "example_input", fsep = .Platform$file.sep)
+
+# check that the input files exist and can be read
+file.coll <- checkmate::makeAssertCollection()
+assert_file_exists(
+  file.path(path, "config.csv", fsep = .Platform$file.sep),
+  access = "r",
+  add = file.coll
+)
+assert_file_exists(
+  file.path(path, "freqgroups.csv", fsep = .Platform$file.sep),
+  access = "r",
+  add = file.coll
+)
+assert_file_exists(
+  file.path(path, "stations.csv", fsep = .Platform$file.sep),
+  access = "r",
+  add = file.coll
+)
+assert_file_exists(
+  file.path(path, "exogenous.csv", fsep = .Platform$file.sep),
+  access = "r",
+  add = file.coll
+)
+checkmate::reportAssertions(file.coll)
 
 
+# load config.csv
 config <-
   read.csv(file = "inst/example_input/config.csv",
            sep = ";",
            stringsAsFactors = FALSE, na.strings = c(""))
 
+# load freqgroups.csv
+freqgroups <-
+  read.csv(file = "inst/example_input/freqgroups.csv",
+           sep = ";",
+           stringsAsFactors = FALSE)
+
+# load stations.csv
+stations <-
+  read.csv(
+    file = "inst/example_input/stations.csv",
+    sep = ";",
+    colClasses = c(
+      "stn_east" = "character",
+      "stn_north" = "character",
+      "acc_east" = "character",
+      "acc_north" = "character"
+    ),
+    stringsAsFactors = FALSE,
+    na.strings = c("")
+  )
+
+
+smallData <- read.csv("small-file.csv",
+                      header = TRUE,
+                      colClasses=c("variableName"="character"))
+
+# create location column in stations (convert to numeric)
+stations$location <-
+  paste0(as.numeric(stations$acc_east), ",", as.numeric(stations$acc_north))
+# rename id column
+colnames(stations)[1] <- "crscode"
+
+# load exogenous.csv
+exogenous <-
+  read.csv(file = "inst/example_input/exogenous.csv",
+           sep = ";",
+           stringsAsFactors = FALSE)
+
+flog.info("Input files read")
+
+
+# Pre-flight checks-------------------------------------------------------------
+
+preflight_failed <- FALSE
 
 # check for valid mode
-if (config$method == "isolation") {
+if (config$method == "isolationd") {
   isolation <- TRUE
-} else if (config$method == "concurrent") {
+} else if (config$method == "concurrentd") {
   isolation <- FALSE
 } else {
-  msg <-
-    "Model method not valid, must be \"isolation\" or \"concurrent\""
-  flog.fatal(msg)
-  stop(msg)
+  preflight_failed <- TRUE
+  flog.error("Model method not valid, must be \"isolation\" or \"concurrent\"")
 }
 
 # set schema name to job_id. Check begins with a-z, then a-z or 0-9 or _ for an
@@ -125,25 +197,17 @@ if (config$method == "isolation") {
 if (grepl("^[a-z][a-z0-9_]{1,5}$", config$job_id, ignore.case = FALSE)) {
   schema <- config$job_id
 } else {
-  msg <-
-    "database schema name uses config$job_id, but it is not in a valid format to be used
-  as a schema name."
-  flog.fatal(msg)
-  stop(msg)
+  preflight_failed <- TRUE
+  flog.error("database schema name uses config$job_id, but it is not in a valid format to be used
+  as a schema name.")
 }
-
-# load frequency groups
-freqgroups <-
-  read.csv(file = "inst/example_input/freqgroups.csv",
-           sep = ";",
-           stringsAsFactors = FALSE)
-
 
 # check frequency group format is ok
 fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
 # check if all pairs match the required format
 if (isFALSE(all(sapply(fg_pairs, function(x) grepl("^[A-Z]{3}:[0-9]{1,}$", x), USE.NAMES = FALSE)))) {
-  stop("format of frequency groups is not correct")
+  preflight_failed <- TRUE
+  flog.error("format of frequency groups is not correct")
 }
 
 # check crscodes in frequency groups are all valid
@@ -152,55 +216,44 @@ fg_crs <- unique(sapply(unlist(fg_pairs), function(x) sub(":.*", "", x), USE.NAM
 # get the index for those not valid
 idx <- which(!(fg_crs %in% crscodes$crscode))
 if (length(idx > 0)) {
-  stop("The following frequency group crscodes are not valid : ", paste(fg_crs[idx], collapse = ", "))
+  preflight_failed <- TRUE
+  flog.error(paste("The following frequency group crscodes are not valid : ", paste(fg_crs[idx], collapse = ", ")))
 }
-
-
-flog.info("config.csv has been imported and checked")
-
-
-
-# Load station data-------------------------------------------------------------
-
-stations <-
-  read.csv(file = "inst/example_input/stations.csv",
-           sep = ";",
-           stringsAsFactors = FALSE, na.strings = c(""))
 
 # check id is unique
-
 if (anyDuplicated(stations$id) > 0) {
-  msg <- "station id must be unique"
-  flog.fatal(msg)
-  stop(msg)
+  preflight_failed <- TRUE
+  flog.error("station id must be unique")
 }
-
 
 # check abstraction station format is correct, if not NA
 # i.e. check for CSV input of three uppercase characters separated by commas
 # (also allowing single crscode with no comma)
 abs_check <- sapply(na.omit(stations$abstract), function(x) grepl("^([A-Z]{3})(,[A-Z]{3})*$", x), USE.NAMES = FALSE)
 if (isFALSE(all(abs_check))) {
-  stop("abstraction stations are not provided in the correct format")
+  preflight_failed <- TRUE
+  flog.error("abstraction stations are not provided in the correct format")
 }
-
 
 # check that abstraction stations are valid crscodes
 abs_crs <- unique(na.omit(unlist(strsplit(stations$abstract, ","))))
 # get the index for those not valid
 idx <- which(!(abs_crs %in% crscodes$crscode))
 if (length(idx > 0)) {
-  stop("The following abstraction group crscodes are not valid: ", paste(abs_crs[idx], collapse = ", "))
+  preflight_failed <- TRUE
+  flog.error(paste("The following abstraction group crscodes are not valid: ", paste(abs_crs[idx], collapse = ", ")))
 }
 
-# check that frequency and number of parking spaces are integerish > 0
+# check that frequency and number of parking spaces are integer > 0
 
 if (isFALSE(testIntegerish(stations$freq, lower = 1, any.missing = FALSE))) {
-  stop("service frequency must be integer > 0")
+  preflight_failed <- TRUE
+  flog.error("service frequency must be integer > 0")
 }
 
 if (isFALSE(testIntegerish(stations$carsp, lower = 1, any.missing = FALSE))) {
-  stop("parking spaces must be integer > 0")
+  preflight_failed <- TRUE
+  flog.error("parking spaces must be integer > 0")
 }
 
 # if concurrent
@@ -210,13 +263,16 @@ if (isFALSE(testIntegerish(stations$carsp, lower = 1, any.missing = FALSE))) {
 
 if (isFALSE(isolation)) {
   if (anyDuplicated(stations$name) > 0) {
-    stop("station name must be unique for concurrent mode")
+    preflight_failed <- TRUE
+    flog.error("station name must be unique for concurrent mode")
   }
   if (length(unique(stations$abstract)) > 1) {
-    stop("defined abstraction stations must be identical for all stations in concurrent mode")
+    preflight_failed <- TRUE
+    flog.error("defined abstraction stations must be identical for all stations in concurrent mode")
   }
   if (length(unique(stations$freqgrp)) > 1) {
-    stop("When using concurrent mode the same frequency group must be specified for every station")
+    preflight_failed <- TRUE
+    flog.error("When using concurrent mode the same frequency group must be specified for every station")
   }
 }
 
@@ -225,40 +281,69 @@ if (isFALSE(isolation)) {
 
 if (isTRUE(isolation)) {
   # if remove columns that are allowed to change
-  if (nrow(stations %>% select(-id,-freq,-freqgrp,-carsp) %>%
+  if (nrow(stations %>% select(-crscode,-freq,-freqgrp,-carsp) %>%
            # distinct should only return as many rows as there are unique station names
            distinct()) != length(unique(stations$name))) {
-    msg <-
-      "In isolation mode stations with the same name can only differ
-    in the values of id, freq, freqgrp, and carsp"
-    flog.fatal(msg)
-    stop(msg)
+    preflight_failed <- TRUE
+    flog.error("In isolation mode stations with the same name can only differ
+    in the values of id, freq, freqgrp, and carsp")
   }
 }
 
-# create location column
-stations$location <-
-  paste0(stations$acc_east, ",", stations$acc_north)
-colnames(stations)[1] <- "crscode"
-
-flog.info("stations.csv has been imported and checked")
-
-
-# Load exogenous data-----------------------------------------------------------
-
-exogenous <-
-  read.csv(file = "inst/example_input/exogenous.csv",
-           sep = ";",
-           stringsAsFactors = FALSE)
-
-# check number column can be coerced to numeric integer for all rows
-if (!testInteger(exogenous$number)) {
-  msg <- "exogenous$number must all be integers"
-  flog.fatal(msg)
-  stop(msg)
+# check exogenous column is integer for all rows
+if (!testIntegerish(exogenous$number, any.missing = FALSE)) {
+  preflight_failed <- TRUE
+  flog.error("exogenous number must all be integers")
 }
 
-flog.info("exogenous.csv has been imported and checked")
+# station and access coordinates must be six digit integers
+
+if (isFALSE(all(sapply(stations$stn_east, function(x) (is.integer(x) & floor(log10(x)) + 1 == 6))))) {
+  preflight_failed <- TRUE
+  flog.error("station eastings must all be 6 digit integers")
+}
+
+if (isFALSE(all(sapply(stations$stn_north, function(x) (is.integer(x) & floor(log10(x)) + 1 == 6))))) {
+  preflight_failed <- TRUE
+  flog.error("station northings must all be 6 digit integers")
+}
+
+if (isFALSE(all(sapply(stations$acc_east, function(x) (is.integer(x) & floor(log10(x)) + 1 == 6))))) {
+  preflight_failed <- TRUE
+  flog.error("access eastings must all be 6 digit integers")
+}
+
+if (isFALSE(all(sapply(stations$acc_north, function(x) (is.integer(x) & floor(log10(x)) + 1 == 6))))) {
+  preflight_failed <- TRUE
+  flog.error("access northings must all be 6 digit integers")
+}
+
+
+# check if access coordinates fall within GB extent
+
+check_coords <- function(coords) {
+query <- paste0("
+                select st_intersects(st_setsrid(st_makepoint(", coords, "),27700), geom) from data.gb_outline;
+ ")
+as.logical(sdr_dbGetQuery(con, query))
+
+}
+
+idx <- which(sapply(stations$location, function(x) check_coords(x), USE.NAMES = FALSE) == FALSE)
+if (length(idx) > 0) {
+  preflight_failed <- TRUE
+  flog.error(paste0("The following station access points do not fall within GB: ", paste0(stations$crscode[idx], ": ", stations$location[idx], collapse = ", ")))
+}
+
+
+# stop if any of the pre-flight checks havefailed
+
+if (isTRUE(preflight_failed)) {
+  stop("Pre-flight checks have failed")
+} else {
+  flog.info("Pre-flight checks passed")
+}
+
 
 
 # Database setup----------------------------------------------------------------
