@@ -225,8 +225,8 @@ if (length(idx > 0)) {
   ))
 }
 
-# check id is unique
-if (anyDuplicated(stations$id) > 0) {
+# check crscode is unique
+if (anyDuplicated(stations$crscode) > 0) {
   preflight_failed <- TRUE
   flog.error("station id must be unique")
 }
@@ -242,18 +242,20 @@ if (isFALSE(all(abs_check))) {
   flog.error("abstraction stations are not provided in the correct format")
 }
 
-# check that abstraction stations are valid crscodes
-abs_crs <- unique(na.omit(unlist(strsplit(
-  stations$abstract, ","
-))))
-# get the index for those not valid
-idx <- which(!(abs_crs %in% crscodes$crscode))
-if (length(idx > 0)) {
-  preflight_failed <- TRUE
-  flog.error(paste(
-    "The following abstraction group crscodes are not valid: ",
-    paste(abs_crs[idx], collapse = ", ")
-  ))
+# check that abstraction stations (if there are any) are valid crscodes
+if (length(unique(na.omit(stations$abstract))) > 0) {
+  abs_crs <- unique(na.omit(unlist(strsplit(
+    stations$abstract, ","
+  ))))
+  # get the index for those not valid
+  idx <- which(!(abs_crs %in% crscodes$crscode))
+  if (length(idx > 0)) {
+    preflight_failed <- TRUE
+    flog.error(paste(
+      "The following abstraction group crscodes are not valid: ",
+      paste(abs_crs[idx], collapse = ", ")
+    ))
+  }
 }
 
 # check that frequency and number of parking spaces are integer > 0
@@ -390,7 +392,6 @@ if (isFALSE(all(sapply(stations$acc_north, function(x)
   flog.error("access northings must all be 6 character strings containing 0-9 only")
 }
 
-
 # check if access coordinates fall within GB extent
 check_coords <- function(coords) {
   query <- paste0(
@@ -413,7 +414,6 @@ if (length(idx) > 0) {
     paste0(stations$crscode[idx], ": ", stations$location[idx], collapse = ", ")
   ))
 }
-
 
 # stop if any of the pre-flight checks have failed
 if (isTRUE(preflight_failed)) {
