@@ -49,16 +49,14 @@ flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 # Using keyring package for storing database password in Windows credential store
 # to avoid exposing on GitHub. Amend as appropriate.
 
-checkdb <- try(
-con <-
-  dbConnect(
-    RPostgres::Postgres(),
-    dbname = "dafni",
-    host = "localhost",
-    user = "postgres",
-    password = key_get("postgres")
-  )
-)
+checkdb <- try(con <-
+                 dbConnect(
+                   RPostgres::Postgres(),
+                   dbname = "dafni",
+                   host = "localhost",
+                   user = "postgres",
+                   password = key_get("postgres")
+                 ))
 if (class(checkdb) == "try-error") {
   stop("Database connection has not been established")
 }
@@ -71,8 +69,7 @@ if (class(checkdb) == "try-error") {
 cl <- makeCluster(detectCores() - 2)
 registerDoParallel(cl)
 
-checkcl <- try(
-clusterEvalQ(cl, {
+checkcl <- try(clusterEvalQ(cl, {
   library(DBI)
   library(RPostgres)
   library(keyring)
@@ -87,8 +84,7 @@ clusterEvalQ(cl, {
       dbname = "dafni"
     )
   NULL
-})
-)
+}))
 if (class(checkcl) == "try-error") {
   stop("clusterEvalQ failed")
 }
@@ -104,7 +100,8 @@ crscodes <- sdr_dbGetQuery(con, query)
 
 # file path
 
-path <- file.path("inst", "example_input", fsep = .Platform$file.sep)
+path <-
+  file.path("inst", "example_input", fsep = .Platform$file.sep)
 
 # check that the input files exist and can be read
 file.coll <- checkmate::makeAssertCollection()
@@ -133,9 +130,12 @@ checkmate::reportAssertions(file.coll)
 
 # load config.csv
 config <-
-  read.csv(file = "inst/example_input/config.csv",
-           sep = ";",
-           stringsAsFactors = FALSE, na.strings = c(""))
+  read.csv(
+    file = "inst/example_input/config.csv",
+    sep = ";",
+    stringsAsFactors = FALSE,
+    na.strings = c("")
+  )
 
 # load freqgroups.csv
 freqgroups <-
@@ -158,14 +158,11 @@ stations <-
     na.strings = c("")
   )
 
-
-smallData <- read.csv("small-file.csv",
-                      header = TRUE,
-                      colClasses=c("variableName"="character"))
-
 # create location column in stations (convert to numeric)
 stations$location <-
-  paste0(as.numeric(stations$acc_east), ",", as.numeric(stations$acc_north))
+  paste0(as.numeric(stations$acc_east),
+         ",",
+         as.numeric(stations$acc_north))
 # rename id column
 colnames(stations)[1] <- "crscode"
 
@@ -183,9 +180,9 @@ flog.info("Input files read")
 preflight_failed <- FALSE
 
 # check for valid mode
-if (config$method == "isolationd") {
+if (config$method == "isolation") {
   isolation <- TRUE
-} else if (config$method == "concurrentd") {
+} else if (config$method == "concurrent") {
   isolation <- FALSE
 } else {
   preflight_failed <- TRUE
@@ -198,26 +195,34 @@ if (grepl("^[a-z][a-z0-9_]{1,5}$", config$job_id, ignore.case = FALSE)) {
   schema <- config$job_id
 } else {
   preflight_failed <- TRUE
-  flog.error("database schema name uses config$job_id, but it is not in a valid format to be used
-  as a schema name.")
+  flog.error(
+    "database schema name uses config$job_id, but it is not in a valid format to be used
+    as a schema name."
+  )
 }
 
 # check frequency group format is ok
 fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
 # check if all pairs match the required format
-if (isFALSE(all(sapply(fg_pairs, function(x) grepl("^[A-Z]{3}:[0-9]{1,}$", x), USE.NAMES = FALSE)))) {
+if (isFALSE(all(sapply(fg_pairs, function(x)
+  grepl("^[A-Z]{3}:[0-9]{1,}$", x), USE.NAMES = FALSE)))) {
   preflight_failed <- TRUE
   flog.error("format of frequency groups is not correct")
 }
 
 # check crscodes in frequency groups are all valid
 # get the unique crscodes from pairs
-fg_crs <- unique(sapply(unlist(fg_pairs), function(x) sub(":.*", "", x), USE.NAMES = FALSE))
+fg_crs <-
+  unique(sapply(unlist(fg_pairs), function(x)
+    sub(":.*", "", x), USE.NAMES = FALSE))
 # get the index for those not valid
 idx <- which(!(fg_crs %in% crscodes$crscode))
 if (length(idx > 0)) {
   preflight_failed <- TRUE
-  flog.error(paste("The following frequency group crscodes are not valid : ", paste(fg_crs[idx], collapse = ", ")))
+  flog.error(paste(
+    "The following frequency group crscodes are not valid : ",
+    paste(fg_crs[idx], collapse = ", ")
+  ))
 }
 
 # check id is unique
@@ -229,28 +234,33 @@ if (anyDuplicated(stations$id) > 0) {
 # check abstraction station format is correct, if not NA
 # i.e. check for CSV input of three uppercase characters separated by commas
 # (also allowing single crscode with no comma)
-abs_check <- sapply(na.omit(stations$abstract), function(x) grepl("^([A-Z]{3})(,[A-Z]{3})*$", x), USE.NAMES = FALSE)
+abs_check <-
+  sapply(na.omit(stations$abstract), function(x)
+    grepl("^([A-Z]{3})(,[A-Z]{3})*$", x), USE.NAMES = FALSE)
 if (isFALSE(all(abs_check))) {
   preflight_failed <- TRUE
   flog.error("abstraction stations are not provided in the correct format")
 }
 
 # check that abstraction stations are valid crscodes
-abs_crs <- unique(na.omit(unlist(strsplit(stations$abstract, ","))))
+abs_crs <- unique(na.omit(unlist(strsplit(
+  stations$abstract, ","
+))))
 # get the index for those not valid
 idx <- which(!(abs_crs %in% crscodes$crscode))
 if (length(idx > 0)) {
   preflight_failed <- TRUE
-  flog.error(paste("The following abstraction group crscodes are not valid: ", paste(abs_crs[idx], collapse = ", ")))
+  flog.error(paste(
+    "The following abstraction group crscodes are not valid: ",
+    paste(abs_crs[idx], collapse = ", ")
+  ))
 }
 
 # check that frequency and number of parking spaces are integer > 0
-
 if (isFALSE(testIntegerish(stations$freq, lower = 1, any.missing = FALSE))) {
   preflight_failed <- TRUE
   flog.error("service frequency must be integer > 0")
 }
-
 if (isFALSE(testIntegerish(stations$carsp, lower = 1, any.missing = FALSE))) {
   preflight_failed <- TRUE
   flog.error("parking spaces must be integer > 0")
@@ -260,7 +270,6 @@ if (isFALSE(testIntegerish(stations$carsp, lower = 1, any.missing = FALSE))) {
 # check name is unique
 # check abstraction string is same for all stations (even if NA)
 # check same frequency group id is specified for every station (even if NA).
-
 if (isFALSE(isolation)) {
   if (anyDuplicated(stations$name) > 0) {
     preflight_failed <- TRUE
@@ -272,72 +281,141 @@ if (isFALSE(isolation)) {
   }
   if (length(unique(stations$freqgrp)) > 1) {
     preflight_failed <- TRUE
-    flog.error("When using concurrent mode the same frequency group must be specified for every station")
+    flog.error(
+      "When using concurrent mode the same frequency group must be specified for every station"
+    )
   }
 }
 
 # if isolation
 # check that repeated station names only differ in id, freq, freqgrp, carsp
-
 if (isTRUE(isolation)) {
   # if remove columns that are allowed to change
   if (nrow(stations %>% select(-crscode,-freq,-freqgrp,-carsp) %>%
            # distinct should only return as many rows as there are unique station names
            distinct()) != length(unique(stations$name))) {
     preflight_failed <- TRUE
-    flog.error("In isolation mode stations with the same name can only differ
-    in the values of id, freq, freqgrp, and carsp")
+    flog.error(
+      "In isolation mode stations with the same name can only differ
+      in the values of id, freq, freqgrp, and carsp"
+    )
   }
-}
+  }
 
-# check exogenous column is integer for all rows
+# check exogenous number column is integer for all rows
 if (!testIntegerish(exogenous$number, any.missing = FALSE)) {
   preflight_failed <- TRUE
   flog.error("exogenous number must all be integers")
 }
 
+# check valid centroids are used for the exogenous inputs
+
+# If type is ‘population’ or ‘housing’ the value can only be assigned to a postcode centroid.
+
+check_pc_centroids <- function(centroid) {
+  query <- paste0("select '",
+                  centroid,
+                  "' IN (select postcode from data.pc_pop_2011)")
+  as.logical(sdr_dbGetQuery(con, query))
+}
+
+pop_houses <-
+  exogenous %>% filter(type == "population" | type == "houses")
+idx <-
+  which(
+    sapply(pop_houses$centroid, function(x)
+      check_pc_centroids(x), USE.NAMES = FALSE) == FALSE
+  )
+if (length(idx) > 0) {
+  preflight_failed <- TRUE
+  flog.error(
+    paste0(
+      "The following postcode centroids in the exogenous input are not valid: ",
+      paste0(pop_houses$type[idx], ": ", pop_houses$centroid[idx], collapse = ", ")
+    )
+  )
+}
+
+# If type is ‘jobs’ the value can be assigned to either a postcode centroid or a workplace centroid.
+check_wp_centroids <- function(centroid) {
+  query <- paste0(
+    "select '",
+    centroid,
+    "' IN (select wz from data.workplace2011 union select postcode from data.pc_pop_2011)"
+  )
+  as.logical(sdr_dbGetQuery(con, query))
+}
+
+jobs <- exogenous %>% filter(type == "jobs")
+idx <-
+  which(sapply(jobs$centroid, function(x)
+    check_wp_centroids(x), USE.NAMES = FALSE) == FALSE)
+if (length(idx) > 0) {
+  preflight_failed <- TRUE
+  flog.error(
+    paste0(
+      "The following workplace centroids in the exogenous input are not valid: ",
+      paste0(jobs$type[idx], ": ", jobs$centroid[idx], collapse = ", ")
+    )
+  )
+}
+
 # station and access coordinates must be six digit integers
-
-if (isFALSE(all(sapply(stations$stn_east, function(x) (is.integer(x) & floor(log10(x)) + 1 == 6))))) {
+if (isFALSE(all(sapply(stations$stn_east, function(x)
+  (
+    grepl("^[0-9]{6}$", x)
+  ))))) {
   preflight_failed <- TRUE
-  flog.error("station eastings must all be 6 digit integers")
+  flog.error("station eastings must all be 6 character strings containing 0-9 only")
 }
-
-if (isFALSE(all(sapply(stations$stn_north, function(x) (is.integer(x) & floor(log10(x)) + 1 == 6))))) {
+if (isFALSE(all(sapply(stations$stn_north, function(x)
+  (
+    grepl("^[0-9]{6}$", x)
+  ))))) {
   preflight_failed <- TRUE
-  flog.error("station northings must all be 6 digit integers")
+  flog.error("station northings must all be 6 character strings containing 0-9 only")
 }
-
-if (isFALSE(all(sapply(stations$acc_east, function(x) (is.integer(x) & floor(log10(x)) + 1 == 6))))) {
+if (isFALSE(all(sapply(stations$acc_east, function(x)
+  (
+    grepl("^[0-9]{6}$", x)
+  ))))) {
   preflight_failed <- TRUE
-  flog.error("access eastings must all be 6 digit integers")
+  flog.error("access eastings must all be 6 character strings containing 0-9 only")
 }
-
-if (isFALSE(all(sapply(stations$acc_north, function(x) (is.integer(x) & floor(log10(x)) + 1 == 6))))) {
+if (isFALSE(all(sapply(stations$acc_north, function(x)
+  (
+    grepl("^[0-9]{6}$", x)
+  ))))) {
   preflight_failed <- TRUE
-  flog.error("access northings must all be 6 digit integers")
+  flog.error("access northings must all be 6 character strings containing 0-9 only")
 }
 
 
 # check if access coordinates fall within GB extent
-
 check_coords <- function(coords) {
-query <- paste0("
-                select st_intersects(st_setsrid(st_makepoint(", coords, "),27700), geom) from data.gb_outline;
- ")
-as.logical(sdr_dbGetQuery(con, query))
-
+  query <- paste0(
+    "
+    select st_intersects(st_setsrid(st_makepoint(",
+    coords,
+    "),27700), geom) from data.gb_outline;
+    "
+    )
+  as.logical(sdr_dbGetQuery(con, query))
 }
 
-idx <- which(sapply(stations$location, function(x) check_coords(x), USE.NAMES = FALSE) == FALSE)
+idx <-
+  which(sapply(stations$location, function(x)
+    check_coords(x), USE.NAMES = FALSE) == FALSE)
 if (length(idx) > 0) {
   preflight_failed <- TRUE
-  flog.error(paste0("The following station access points do not fall within GB: ", paste0(stations$crscode[idx], ": ", stations$location[idx], collapse = ", ")))
+  flog.error(paste0(
+    "The following station access points do not fall within GB: ",
+    paste0(stations$crscode[idx], ": ", stations$location[idx], collapse = ", ")
+  ))
 }
 
 
-# stop if any of the pre-flight checks havefailed
-
+# stop if any of the pre-flight checks have failed
 if (isTRUE(preflight_failed)) {
   stop("Pre-flight checks have failed")
 } else {
@@ -345,9 +423,7 @@ if (isTRUE(preflight_failed)) {
 }
 
 
-
 # Database setup----------------------------------------------------------------
-
 
 # create db schema to hold model data
 
@@ -766,7 +842,7 @@ if (isolation) {
     if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
       df <-
         data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == crscode],
-                                 "group_crs"], stringsAsFactors = FALSE)
+                                     "group_crs"], stringsAsFactors = FALSE)
 
       flog.info(paste0("calling sdr_frequency_group_adjustment for: ",
                        crscode))
@@ -1054,7 +1130,10 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
   # For before analysis we only need to consider unique crscodes (from all
   # proposed stations) where abstraction analysis is required.
   # So lets get a vector of those - ignoring NAs of course.
-  abs_stations <- unique(na.omit(unlist(strsplit(stations$abstract, ","))))
+  abs_stations <-
+    unique(na.omit(unlist(strsplit(
+      stations$abstract, ","
+    ))))
 
   flog.info(paste0(
     "Unique crscodes requiring a BEFORE abstraction analysis: ",
@@ -1248,7 +1327,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
         if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
           df <-
             data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == crscode],
-                                     "group_crs"],
+                                         "group_crs"],
                        stringsAsFactors = FALSE)
 
           flog.info(
@@ -1342,11 +1421,9 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
     # For the concurrent method, abstraction entry MUST be same for all proposed
     # stations when submitted, so we just need to get the entry for the first row
     # and loop through each of the requested abstraction analysis stations.
-
     for (abs_crscode in unlist(strsplit(stations$abstract[1], ","))) {
       # for each abs_crscode we pass all the proposed stations to the function
       # as all would be present in the after situation in concurrent mode
-
       flog.info(
         paste0(
           "call sdr_generate_choicesets, at risk station: ",
@@ -1355,13 +1432,11 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
           paste0(stations$crscode, collapse = ", ")
         )
       )
-
       choicesets <-
         sdr_generate_choicesets(schema,
                                 stations$crscode,
                                 existing = FALSE,
                                 abs_crs = abs_crscode)
-
       flog.info(
         paste0(
           "call sdr_generate_probability_table, at risk station: ",
@@ -1383,9 +1458,8 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       if (!is.na(stations$freqgrp[1])) {
         df <-
           data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1],
-                                   "group_crs"],
+                                       "group_crs"],
                      stringsAsFactors = FALSE)
-
         flog.info(
           paste0(
             "call sdr_frequency_group_adjustment, at risk station: ",
@@ -1396,7 +1470,6 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
 
         sdr_frequency_group_adjustment(schema, df, paste0(tolower(abs_crscode),
                                                           "_after_abs_concurrent"))
-
       }
 
       # calculate probabilities
@@ -1407,7 +1480,6 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
           ", proposed stations: (concurrent)"
         )
       )
-
       sdr_calculate_probabilities(schema, paste0(tolower(abs_crscode),
                                                  "_after_abs_concurrent"))
 
@@ -1420,7 +1492,6 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
           ", proposed stations: (concurrent)"
         )
       )
-
       prweighted_pop_concurrent <-
         sdr_calculate_prweighted_population(schema,
                                             abs_crscode,
@@ -1428,7 +1499,6 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
                                                    "_after_abs_concurrent"))
 
       # update abstraction_results table
-
       query <- paste0(
         "update ",
         schema,
