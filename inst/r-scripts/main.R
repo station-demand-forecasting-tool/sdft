@@ -766,9 +766,9 @@ if (isolation) {
   flog.info("method is isolation")
 
   # which station names are duplicated?
-  duplicates <- stations$name[(anyDuplicated(stations$name))]
+  duplicates <- unique(stations$name[duplicated(stations$name)])
 
-  # for any crscodes where station name is not duplicated; straightforward
+  # for crscodes where station name is NOT duplicated; straightforward
   for (crscode in stations$crscode[!(stations$name %in% duplicates)]) {
     flog.info(paste0(
       "calling sdr_generate_choicesets for: ",
@@ -778,62 +778,33 @@ if (isolation) {
 
     flog.info(paste0("calling sdr_generate_probability_table for: ", crscode))
     sdr_generate_probability_table(schema, choicesets, tolower(crscode))
+    choicesets <- NULL
   }
 
-  # which station names are duplicated due to sensitivity analysis?
-  sensitivity_stations <-
-    unique(stations$name[stations$name %in% duplicates])
-
-  # for any sensitivity analysis stations
-  for (name in sensitivity_stations) {
-    # get the first crscode for a station with name
+  # for duplicated stations
+  # only want to get the choicesets once per duplicated station
+  for (name in duplicates) {
+    # get the first crscode for a station with this name
     first_crs <- stations$crscode[stations$name == name][1]
 
     # generate the choiceset for that crs
     flog.info(paste0("calling sdr_generate_choicesets for: ", name))
-    choicesets <-
+    firstsets <-
       sdr_generate_choicesets(schema, first_crs)
 
-    # create probability table
+    # generate probability table for first_crs
     flog.info(paste0("calling sdr_generate_probability_table for: ", first_crs))
-    sdr_generate_probability_table(schema, choicesets, tolower(first_crs))
+    sdr_generate_probability_table(schema, firstsets, tolower(first_crs))
 
-    # then for every other crscode with the same station name
+    # then for every other crscode with this station name
     for (crscode in stations$crscode[stations$name == name][-1]) {
-      # make copy of table
-      flog.info(paste0("making copy of probability table for ", crscode))
-      query <- paste0(
-        "create table ",
-        schema,
-        ".probability_",
-        tolower(crscode),
-        " as
-        select * from ",
-        schema,
-        ".probability_",
-        tolower(first_crs)
-      )
-      sdr_dbExecute(con, query)
-
-
-      flog.info(paste0(
-        "updating probability table crscode column ",
-        first_crs,
-        ":",
-        crscode
-      ))
-      query <- paste0(
-        "update ",
-        schema,
-        ".probability_",
-        tolower(crscode),
-        " set crscode = '",
-        crscode,
-        "' where crscode = '",
-        first_crs,
-        "'"
-      )
-      sdr_dbExecute(con, query)
+      # copy firstsets
+      choicesets <- firstsets
+      # update all first_crs to this crscode
+      choicesets[choicesets == first_crs] <- crscode
+      # create probability table
+      flog.info(paste0("calling sdr_generate_probability_table for: ", crscode))
+      sdr_generate_probability_table(schema, choicesets, tolower(crscode))
     }
   }
 
