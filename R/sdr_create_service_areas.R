@@ -29,8 +29,9 @@ total_stations <- nrow(df)
 
 # begin the service area loop i
 df <- foreach::foreach(i=sa, .noexport="con", .packages=c("DBI", "RPostgres", "dplyr")) %dopar%
-{
 
+  {
+  sink("sa.log", append=TRUE)
   if (cost == "len") {
     column_name <- paste0("service_area_", i / 1000, "km")
     # for distance set buffer to same as distance - not possible for road

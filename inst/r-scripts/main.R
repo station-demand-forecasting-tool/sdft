@@ -18,6 +18,10 @@ if (file.exists("sdr.log")) {
   file.remove("sdr.log")
 }
 
+if (file.exists("sa.log")) {
+  file.remove("sa.log")
+}
+
 # set up logging
 flog.appender(appender.file("sdr.log"))
 # set logging level
