@@ -28,7 +28,7 @@ total_stations <- nrow(df)
 
 
 # begin the service area loop i
-df <- foreach::foreach(i=sa, .noexport="con", .packages=c("DBI", "RPostgreSQL", "dplyr")) %dopar%
+df <- foreach::foreach(i=sa, .noexport="con", .packages=c("DBI", "RPostgres", "dplyr")) %dopar%
 {
 
   if (cost == "len") {

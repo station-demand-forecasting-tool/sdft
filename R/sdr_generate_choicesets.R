@@ -251,7 +251,7 @@ sdr_generate_choicesets <-
       foreach::foreach(
         i = postcodes$postcode,
         .noexport = "con",
-        .packages = c("DBI", "RPostgreSQL", "dplyr"),
+        .packages = c("DBI", "RPostgres", "dplyr"),
         .combine = 'rbind'
       ) %dopar%
       {
