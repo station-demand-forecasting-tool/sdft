@@ -42,7 +42,7 @@ options(
 
 # During testing set this variable to TRUE. This produces fake 60-minute
 # proposed station service areas which are actually only 5-minute service areas.
-testing <- TRUE
+testing <- FALSE
 flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 
 # Set up a database connection.
@@ -196,8 +196,8 @@ if (grepl("^[a-z][a-z0-9_]{1,5}$", config$job_id, ignore.case = FALSE)) {
 } else {
   preflight_failed <- TRUE
   flog.error(
-    "database schema name uses config$job_id, but it is not in a valid format to be used
-    as a schema name."
+    "database schema name uses config$job_id, but it is not in a valid format to
+    be used as a schema name."
   )
 }
 
@@ -233,10 +233,10 @@ if (anyDuplicated(stations$crscode) > 0) {
 
 # check abstraction station format is correct, if not NA
 # i.e. check for CSV input of three uppercase characters separated by commas
-# (also allowing single crscode with no comma)
+# (also allowing single crscode with no comma). Maximum of three crscodes.
 abs_check <-
   sapply(na.omit(stations$abstract), function(x)
-    grepl("^([A-Z]{3})(,[A-Z]{3})*$", x), USE.NAMES = FALSE)
+    grepl("^([A-Z]{3})(,[A-Z]{3}){0,2}$", x), USE.NAMES = FALSE)
 if (isFALSE(all(abs_check))) {
   preflight_failed <- TRUE
   flog.error("abstraction stations are not provided in the correct format")
@@ -279,12 +279,14 @@ if (isFALSE(isolation)) {
   }
   if (length(unique(stations$abstract)) > 1) {
     preflight_failed <- TRUE
-    flog.error("defined abstraction stations must be identical for all stations in concurrent mode")
+    flog.error("defined abstraction stations must be identical for all stations
+               in concurrent mode")
   }
   if (length(unique(stations$freqgrp)) > 1) {
     preflight_failed <- TRUE
     flog.error(
-      "When using concurrent mode the same frequency group must be specified for every station"
+      "When using concurrent mode the same frequency group must be specified for
+      every station"
     )
   }
 }
@@ -293,8 +295,9 @@ if (isFALSE(isolation)) {
 # check that repeated station names only differ in id, freq, freqgrp, carsp
 if (isTRUE(isolation)) {
   # if remove columns that are allowed to change
-  if (nrow(stations %>% select(-crscode,-freq,-freqgrp,-carsp) %>%
-           # distinct should only return as many rows as there are unique station names
+  if (nrow(stations %>% select(-crscode, -freq, -freqgrp, -carsp) %>%
+           # distinct should only return as many rows as there are unique
+           # station names
            distinct()) != length(unique(stations$name))) {
     preflight_failed <- TRUE
     flog.error(
@@ -312,7 +315,8 @@ if (!testIntegerish(exogenous$number, any.missing = FALSE)) {
 
 # check valid centroids are used for the exogenous inputs
 
-# If type is ‘population’ or ‘housing’ the value can only be assigned to a postcode centroid.
+# If type is ‘population’ or ‘housing’ the value can only be assigned to a
+# postcode centroid.
 
 check_pc_centroids <- function(centroid) {
   query <- paste0("select '",
@@ -338,7 +342,8 @@ if (length(idx) > 0) {
   )
 }
 
-# If type is ‘jobs’ the value can be assigned to either a postcode centroid or a workplace centroid.
+# If type is ‘jobs’ the value can be assigned to either a postcode centroid or a
+# workplace centroid.
 check_wp_centroids <- function(centroid) {
   query <- paste0(
     "select '",
@@ -689,7 +694,7 @@ if (testing) {
     schema = schema,
     df = unique_stations,
     identifier = "name",
-    table = "stations_sas",
+    table = "station_sas",
     sa = c(60),
     cost = "time",
     target = 0.9
@@ -700,7 +705,7 @@ if (testing) {
 # Add the required service area columns to proposed_stations and update
 # the geometries from stations_sas.
 
-#distance-based
+# distance-based
 for (i in c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000)) {
   column_name <- paste0("service_area_", i / 1000, "km")
   query <-
@@ -727,7 +732,7 @@ for (i in c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000)) {
   sdr_dbExecute(con, query)
 }
 
-#time-based
+# time-based
 for (i in c(1, 60)) {
   column_name <- paste0("service_area_", i, "mins")
   query <-
@@ -843,9 +848,9 @@ if (isolation) {
   sdr_generate_probability_table(schema, choicesets, "concurrent")
 
   # make frequency group adjustments if required
-  # must only be a single frequency group for concurrent treatment
-  # So we just check the first row isn't NA for the group name and process once
-
+  # must either be no frequency group entered or the same frequency group for
+  # all stations. The latter is checked during pre-flight, so just need to take
+  # the frequency group for the first stations (if it isn't NA).
   if (!is.na(stations$freqgrp[1])) {
     df <-
       data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1], "group_crs"], stringsAsFactors = FALSE)
@@ -1098,30 +1103,6 @@ sdr_dbExecute(con, query)
 if (length(unique(na.omit(stations$abstract))) > 0) {
   flog.info("starting abstraction analysis")
 
-  # For before analysis we only need to consider unique crscodes (from all
-  # proposed stations) where abstraction analysis is required.
-  # So lets get a vector of those - ignoring NAs of course.
-  abs_stations <-
-    unique(na.omit(unlist(strsplit(
-      stations$abstract, ","
-    ))))
-
-  flog.info(paste0(
-    "Unique crscodes requiring a BEFORE abstraction analysis: ",
-    paste0(abs_stations, collapse = ", ")
-  ))
-
-  # Get easting and northings for these stations
-  query <- paste0(
-    "
-    select crscode, easting || ',' || northing as location from data.stations where
-    crscode in (",
-    paste ("'", abs_stations, "'", sep = "", collapse = ",") ,
-    ")
-    "
-    )
-  abs_stations <- sdr_dbGetQuery(con, query)
-
   # Create the abstraction results table
 
   query <- paste0(
@@ -1147,12 +1128,14 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
 
   # populate abstraction results table with proposed (or 'concurrent') and at_risk stations
   if (isolation) {
-    for (proposed in stations$crscode) {
+    # for proposed stations that require an abstraction analysis
+    for (proposed in stations$crscode[!is.na(stations$abstract)]) {
+      # for each at-risk station specified for this proposed station
       for (at_risk in unlist(strsplit(stations$abstract[stations$crscode == proposed], ",")))
       {
         flog.info(
           paste0(
-            "require result for, proposed station: ",
+            "require result for proposed station: ",
             proposed,
             " and at risk station: ",
             at_risk
@@ -1174,7 +1157,9 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       }
     }
   } else {
-    for (at_risk in unlist(strsplit(stations$abstract[1], ",")))
+    # for concurrent mode at-risk stations must be the same for every station
+    # so just get them from the first porposed station (if not NA)
+    for (at_risk in na.omit(unlist(strsplit(stations$abstract[1], ","))))
     {
       flog.info(paste0(
         "require result for concurrent stations, and at risk station: ",
@@ -1192,7 +1177,8 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
     }
   }
 
-  # populate with entsexist1718 - how to handle this going forward?
+  # populate abstraction_results table with entsexist1718 for each at-risk station
+  # How to handle this going forward?
 
   query <- paste0(
     "	update ",
@@ -1205,11 +1191,27 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
   sdr_dbExecute(con, query)
 
 
-  # create the before choicesets and probability tables for each unique abstraction station
+  # create the before choicesets and probability tables for each unique at-risk
+  # station. Ignoring NAs of course.
+  unique_atrisk <-
+    unique(na.omit(unlist(strsplit(
+      stations$abstract, ","
+    ))))
+
+  # Get easting and northings for these stations
+  query <- paste0(
+    "
+    select crscode, easting || ',' || northing as location from data.stations where
+    crscode in (",
+    paste ("'", unique_atrisk, "'", sep = "", collapse = ",") ,
+    ")
+    "
+    )
+  unique_atrisk <- sdr_dbGetQuery(con, query)
 
   flog.info("starting to create BEFORE choicesets and probability tables")
 
-  for (crscode in abs_stations$crscode) {
+  for (crscode in unique_atrisk$crscode) {
     # generate the choiceset for that crs
     flog.info(paste0("calling sdr_generate_choicesets for: ", crscode))
     choicesets <-
@@ -1220,7 +1222,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
     sdr_generate_probability_table(schema, choicesets, paste0(tolower(crscode), "_before_abs"))
 
     # No frequency group adustments are probably needed for the before situation.
-    # Is this valid? Confirm.
+    # Is this valid? Need Confirm.
 
     # calculate probabilities
     flog.info(paste0("calling sdr_calculate_probabilities for: ", crscode))
@@ -1247,116 +1249,101 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       "'"
     )
     sdr_dbExecute(con, query)
-
   }
 
   # Create the after choicesets - depends on whether isolation or concurrent method
 
   flog.info("starting to create AFTER choicesets and probability tables")
 
-  # For isolation we loop through each proposed station and then use a nested loop for
-  # each of the stations where abstraction analysis is required
-
+  # For isolation mode we loop through each proposed station that requires
+  # abstraction analysis (i.e not NA)
   if (isolation) {
-    for (crscode in stations$crscode) {
-      for (abs_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
+    for (proposed in stations$crscode[!is.na(stations$abstract)]) {
+      # Then use a nested loop for each of the at-risk stations.
+      for (at_risk in unlist(strsplit(stations$abstract[stations$crscode == proposed], ",")))
       {
         flog.info(
           paste0(
             "calling sdr_generate_choicesets, at risk station: ",
-            abs_crscode,
+            at_risk,
             ", proposed station: ",
-            crscode
+            proposed
           )
         )
 
         choicesets <-
           sdr_generate_choicesets(schema,
-                                  crscode,
+                                  proposed,
                                   existing = FALSE,
-                                  abs_crs = abs_crscode)
+                                  abs_crs = at_risk)
 
         flog.info(
           paste0(
             "calling sdr_generate_probability_table, at risk station: ",
-            abs_crscode,
+            at_risk,
             ", proposed station: ",
-            crscode
+            proposed
           )
         )
 
         # Generate probability table
         sdr_generate_probability_table(schema,
                                        choicesets,
-                                       paste0(
-                                         tolower(abs_crscode),
-                                         "_after_abs_",
-                                         tolower(crscode)
-                                       ))
+                                       paste0(tolower(at_risk),
+                                              "_after_abs_",
+                                              tolower(proposed)))
 
         # make frequency group adjustments if required
-        if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
+        if (!is.na(stations$freqgrp[stations$crscode == proposed])) {
           df <-
-            data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == crscode],
-                                         "group_crs"],
-                       stringsAsFactors = FALSE)
+            data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == proposed], "group_crs"], stringsAsFactors = FALSE)
 
           flog.info(
             paste0(
               "calling sdr_frequency_group_adjustment, at risk station: ",
-              abs_crscode,
+              at_risk,
               ", proposed station: ",
-              crscode
+              proposed
             )
           )
 
           sdr_frequency_group_adjustment(schema,
                                          df,
-                                         paste0(
-                                           tolower(abs_crscode),
-                                           "_after_abs_",
-                                           tolower(crscode)
-                                         ))
-
+                                         paste0(tolower(at_risk),
+                                                "_after_abs_",
+                                                tolower(proposed)))
         } # end if freqgrp
-
 
         # calculate probabilities
         flog.info(
           paste0(
             "call sdr_calculate_probabilities, at risk station: ",
-            abs_crscode,
+            at_risk,
             ", proposed station: ",
-            crscode
+            proposed
           )
         )
 
-        sdr_calculate_probabilities(schema, paste0(
-          tolower(abs_crscode),
-          "_after_abs_",
-          tolower(crscode)
-        ))
-
+        sdr_calculate_probabilities(schema, paste0(tolower(at_risk),
+                                                   "_after_abs_",
+                                                   tolower(proposed)))
 
         # get probability weighted population
         flog.info(
           paste0(
             "call sdr_calculate_prweighted_population, at risk station: ",
-            abs_crscode,
+            at_risk,
             ", proposed station: ",
-            crscode
+            proposed
           )
         )
 
         prweighted_pop_after <-
           sdr_calculate_prweighted_population(schema,
-                                              abs_crscode,
-                                              paste0(
-                                                tolower(abs_crscode),
-                                                "_after_abs_",
-                                                tolower(crscode)
-                                              ))
-
+                                              at_risk,
+                                              paste0(tolower(at_risk),
+                                                     "_after_abs_",
+                                                     tolower(proposed)))
         # update abstraction_results table
         query <- paste0(
           "update ",
@@ -1365,9 +1352,9 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
           set prwpop_after = ",
           prweighted_pop_after,
           " where proposed = '",
-          crscode,
+          proposed,
           "' and at_risk = '",
-          abs_crscode,
+          at_risk,
           "'"
         )
         sdr_dbExecute(con, query)
@@ -1379,39 +1366,39 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
           set change = prwpop_after - prwpop_before,
           pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
           where proposed = '",
-          crscode,
+          proposed,
           "' and at_risk = '",
-          abs_crscode,
+          at_risk,
           "'"
         )
         sdr_dbExecute(con, query)
-
       }
-    }
+    } # end isolation
   } else {
     # For the concurrent method, abstraction entry MUST be same for all proposed
-    # stations when submitted, so we just need to get the entry for the first row
-    # and loop through each of the requested abstraction analysis stations.
-    for (abs_crscode in unlist(strsplit(stations$abstract[1], ","))) {
-      # for each abs_crscode we pass all the proposed stations to the function
-      # as all would be present in the after situation in concurrent mode
+    # stations when submitted (this is checked in pre-flight). So we just need to
+    # get the entry for the first row - if not NA - and loop through each of the
+    # at_risk stations.
+    for (at_risk in na.omit(unlist(strsplit(stations$abstract[1], ",")))) {
+      # for each at_risk station we pass all the proposed stations to the function
+      # - as all would be present in the after situation in concurrent mode
       flog.info(
         paste0(
           "call sdr_generate_choicesets, at risk station: ",
-          abs_crscode,
+          at_risk,
           ", proposed stations: ",
-          paste0(stations$crscode, collapse = ", ")
+          paste0(stations$crscode , collapse = ", ")
         )
       )
       choicesets <-
         sdr_generate_choicesets(schema,
                                 stations$crscode,
                                 existing = FALSE,
-                                abs_crs = abs_crscode)
+                                abs_crs = at_risk)
       flog.info(
         paste0(
           "call sdr_generate_probability_table, at risk station: ",
-          abs_crscode,
+          at_risk,
           ", proposed stations: (concurrent)"
         )
       )
@@ -1419,13 +1406,13 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       # Generate probability table
       sdr_generate_probability_table(schema,
                                      choicesets,
-                                     paste0(tolower(abs_crscode), "_after_abs_concurrent"))
+                                     paste0(tolower(at_risk), "_after_abs_concurrent"))
 
 
       # Make frequency group adjustments if required.
       # Must only be a single identical frequency group for all stations under
-      # concurrent treatment. So we just check the first row for the group name
-      # and process once
+      # concurrent treatment. This is checked during pre-flight. So we just check
+      # the first row for the group name and process once (if not NA)
       if (!is.na(stations$freqgrp[1])) {
         df <-
           data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1],
@@ -1434,12 +1421,12 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
         flog.info(
           paste0(
             "call sdr_frequency_group_adjustment, at risk station: ",
-            abs_crscode,
+            at_risk,
             ", proposed stations: (concurrent)"
           )
         )
 
-        sdr_frequency_group_adjustment(schema, df, paste0(tolower(abs_crscode),
+        sdr_frequency_group_adjustment(schema, df, paste0(tolower(at_risk),
                                                           "_after_abs_concurrent"))
       }
 
@@ -1447,11 +1434,11 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       flog.info(
         paste0(
           "call sdr_calculate_probabilities, at risk station: ",
-          abs_crscode,
+          at_risk,
           ", proposed stations: (concurrent)"
         )
       )
-      sdr_calculate_probabilities(schema, paste0(tolower(abs_crscode),
+      sdr_calculate_probabilities(schema, paste0(tolower(at_risk),
                                                  "_after_abs_concurrent"))
 
       # get probability weighted population
@@ -1459,14 +1446,14 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       flog.info(
         paste0(
           "call sdr_calculate_prweighted_population, at risk station: ",
-          abs_crscode,
+          at_risk,
           ", proposed stations: (concurrent)"
         )
       )
       prweighted_pop_concurrent <-
         sdr_calculate_prweighted_population(schema,
-                                            abs_crscode,
-                                            paste0(tolower(abs_crscode),
+                                            at_risk,
+                                            paste0(tolower(at_risk),
                                                    "_after_abs_concurrent"))
 
       # update abstraction_results table
@@ -1477,7 +1464,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
         set prwpop_after = ",
         prweighted_pop_concurrent,
         " where proposed = 'concurrent' and at_risk = '",
-        abs_crscode,
+        at_risk,
         "'"
       )
       sdr_dbExecute(con, query)
@@ -1489,12 +1476,10 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
         set change = prwpop_after - prwpop_before,
         pc_change = ((prwpop_after - prwpop_before::real) / prwpop_before) * 100
         where proposed = 'concurrent' and at_risk = '",
-        abs_crscode,
+        at_risk,
         "'"
       )
       sdr_dbExecute(con, query)
-
-
     }
   } # end concurrent method
 
@@ -1515,75 +1500,51 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
   )
   sdr_dbExecute(con, query)
 
+  # Generate before GeoJson catchments
 
-  # Generate before and after GeoJSON catchments
+  # generate before catchment - only need to run for unique at-risk stations.
+  # These are in unique_atrisk
+  for (crscode in unique_atrisk$crscode) {
+    sdr_create_json_catchment(schema,
+                              "abstraction",
+                              crscode,
+                              paste0(tolower(crscode), "_before_abs"),
+                              tolerance = 2)
+  }
+
+  # Generate after GeoJSON catchments
   if (isolation) {
-    # generate before catchment - only need to run for unique abstraction stations.
-    # These are in abs_stations
-
-    for (crscode in abs_stations$crscode) {
-      flog.info("calling sdr_create_json_catchment for BEFORE catchment")
-
-      sdr_create_json_catchment(schema,
-                                "abstraction",
-                                crscode,
-                                paste0(tolower(crscode), "_before_abs"),
-                                tolerance = 2)
-    }
-
-    # generate after catchment
-    for (crscode in stations$crscode) {
-      for (atrisk_crscode in unlist(strsplit(stations$abstract[stations$crscode == crscode], ",")))
+    for (proposed in stations$crscode[!is.na(stations$abstract)]) {
+      for (at_risk in unlist(strsplit(stations$abstract[stations$crscode == proposed], ",")))
       {
-        flog.info("calling sdr_create_json_catchment for AFTER catchment")
-
         sdr_create_json_catchment(
           schema,
           "abstraction",
-          atrisk_crscode,
-          paste0(
-            tolower(atrisk_crscode),
-            "_after_abs_",
-            tolower(crscode)
-          ),
-          crscode,
+          at_risk,
+          paste0(tolower(at_risk),
+                 "_after_abs_",
+                 tolower(proposed)),
+          proposed,
           tolerance = 2
         )
       }
     }
   } else {
     # concurrent
-    # generate before catchment - only need to run for unique abstraction stations.
-    # These are in abs_stations
-
-    for (crscode in abs_stations$crscode) {
-      flog.info("calling sdr_create_json_catchment for BEFORE catchment")
-
-      sdr_create_json_catchment(schema,
-                                "abstraction",
-                                crscode,
-                                paste0(tolower(crscode), "_before_abs"),
-                                tolerance = 2)
-    }
-
     # generate after catchment
-    for (atrisk_crscode in unlist(strsplit(stations$abstract[1], ","))) {
-      flog.info("calling sdr_create_json_catchment for AFTER catchment")
-
+    for (at_risk in na.omit(unlist(strsplit(stations$abstract[1], ",")))) {
       sdr_create_json_catchment(
         schema,
         "abstraction",
-        atrisk_crscode,
-        paste0(tolower(atrisk_crscode), "_after_abs_concurrent"),
+        at_risk,
+        paste0(tolower(at_risk), "_after_abs_concurrent"),
         "concurrent",
         tolerance = 2
       )
     }
   } # end generate before and after GeoJSON catchments.
 
-
 } #end abstraction analysis
-
 
 # Closing actions---------------------------------------------------------------
 
