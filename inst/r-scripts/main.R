@@ -3,6 +3,7 @@
 library(stationdemandr)
 library(dplyr)
 library(tidyr)
+library(readr)
 library(foreach)
 library(stringr)
 library(doParallel)
@@ -763,6 +764,10 @@ for (i in c(1, 60)) {
   sdr_dbExecute(con, query)
 }
 
+# read sa.log into sdr.log - from workaround in foreach using sink() in
+# sdr_create_service_areas
+
+cat(read_lines(file = "sa.log"), file = "sdr.log", append = TRUE, fill = TRUE)
 
 flog.info("station service area generation completed")
 

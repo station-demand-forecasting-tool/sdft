@@ -31,6 +31,9 @@ total_stations <- nrow(df)
 df <- foreach::foreach(i=sa, .noexport="con", .packages=c("DBI", "RPostgres", "dplyr")) %dopar%
 
   {
+  # futile.logger can't write to sdr.log within foreach
+  # there probably is a solution but for now workaround is to specify sink() to
+  # another file and futile.logger will log to this.
   sink("sa.log", append=TRUE)
   if (cost == "len") {
     column_name <- paste0("service_area_", i / 1000, "km")
