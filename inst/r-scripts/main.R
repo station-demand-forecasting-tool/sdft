@@ -46,7 +46,7 @@ options(
 
 # During testing set this variable to TRUE. This produces fake 60-minute
 # proposed station service areas which are actually only 5-minute service areas.
-testing <- TRUE
+testing <- FALSE
 flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 
 # Set up a database connection.
@@ -1007,41 +1007,33 @@ query <- paste0(
 )
 sdr_dbExecute(con, query)
 
-
-# Call:
-#   lm(formula = log(entex1112) ~ log(te19cmb_15212) + log(dailyfrequency_2013_all) +
-#        log1p(work_pop_1m) + log1p(carspaces) + electric_dummy +
-#        tcard_bound_dummy + TerminusDummy, data = catef_te_models_ews)
-#
-# Residuals:
-#   Min      1Q  Median      3Q     Max
-# -2.9479 -0.4128  0.0056  0.4287  3.3785
-#
+# version with altered application of decay function
 # Coefficients:
 #   Estimate Std. Error t value Pr(>|t|)
-# (Intercept)                  3.672122   0.095382  38.499  < 2e-16 ***
-#   log(te19cmb_15212)           0.366469   0.018194  20.142  < 2e-16 ***
-#   log(dailyfrequency_2013_all) 1.139167   0.027473  41.465  < 2e-16 ***
-#   log1p(work_pop_1m)           0.053005   0.006840   7.749 1.54e-14 ***
-#   log1p(carspaces)             0.129301   0.009147  14.136  < 2e-16 ***
-#   electric_dummy               0.243414   0.041037   5.932 3.59e-09 ***
-#   tcard_bound_dummy            0.299968   0.091295   3.286  0.00104 **
-#   TerminusDummy                0.781959   0.083414   9.374  < 2e-16 ***
+# (Intercept)                  3.601572   0.097337  37.001  < 2e-16 ***
+#   log(te19cmb_15212_adj)       0.362379   0.017917  20.225  < 2e-16 ***
+#   log(dailyfrequency_2013_all) 1.138605   0.027443  41.490  < 2e-16 ***
+#   log1p(work_pop_1m)           0.052576   0.006840   7.687 2.48e-14 ***
+#   log1p(carspaces)             0.126604   0.009169  13.808  < 2e-16 ***
+#   electric_dummy               0.243148   0.040996   5.931 3.61e-09 ***
+#   tcard_bound_dummy            0.294408   0.091232   3.227  0.00127 **
+#   TerminusDummy                0.777482   0.083368   9.326  < 2e-16 ***
 #   ---
 #   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #
-# Residual standard error: 0.6909 on 1784 degrees of freedom
-# Multiple R-squared:  0.8506,	Adjusted R-squared:   0.85
-# F-statistic:  1451 on 7 and 1784 DF,  p-value: < 2.2e-16
+# Residual standard error: 0.6904 on 1784 degrees of freedom
+# Multiple R-squared:  0.8508,	Adjusted R-squared:  0.8502
+# F-statistic:  1454 on 7 and 1784 DF,  p-value: < 2.2e-16
+#
 
-var_intercept <- 3.672122
-var_population <- 0.366469
-var_frequency <- 1.139167
-var_workpop <- 0.053005
-var_carspaces <- 0.129301
-var_electric <- 0.243414
-var_tcardbound <- 0.299968
-var_terminus <- 0.781959
+var_intercept <- 3.601572
+var_population <- 0.362379
+var_frequency <- 1.138605
+var_workpop <- 0.052576
+var_carspaces <- 0.126604
+var_electric <- 0.243148
+var_tcardbound <- 0.294408
+var_terminus <- 0.777482
 
 # base forecast
 
