@@ -110,7 +110,7 @@ sdr_generate_choicesets <-
       from
       data.pc_pop_2011 a, sa where st_within(a.geom, sa.geom)
       "
-      )
+    )
     postcodes <- sdr_dbGetQuery(con, query)
 
 
@@ -184,7 +184,7 @@ sdr_generate_choicesets <-
       from
       tmp
       "
-      )
+    )
     sdr_dbExecute(con, query)
 
 
@@ -234,7 +234,7 @@ sdr_generate_choicesets <-
       ,
       ")
       "
-      )
+    )
     sdr_dbExecute(con, query)
 
     # generate choicesets using parallel processing
@@ -265,7 +265,7 @@ sdr_generate_choicesets <-
           paste(crs, sep = "", collapse = ", "),
           "', 1000, 0.5)
           "
-          )
+        )
         nearestx <- sdr_dbGetQuery(con, query)
 
         if (nrow(nearestx) > 0) {
@@ -284,7 +284,7 @@ sdr_generate_choicesets <-
               nearestx$crscode[j],
               "', 25000, 1)
               "
-              )
+            )
             d <- sdr_dbGetQuery(con, query)
             # check if a distance is returned
             if (nrow(d) > 0) {
@@ -302,7 +302,7 @@ sdr_generate_choicesets <-
                 nearestx$crscode[j],
                 "')
                 "
-                )
+              )
               d <- sdr_dbGetQuery(con, query)
               # just in case still no result trap and use -9999
               # how to deal with this??
@@ -376,29 +376,46 @@ sdr_generate_choicesets <-
       futile.logger::flog.info(paste0("Unique postcodes: ", length(unique(df$postcode))))
     }
 
-    # log some choiceset stats
-    futile.logger::flog.info(paste0(
-      "average choiceset size: ",
-      df %>%
-        dplyr::summarise(number = n()) %>%
-        dplyr::summarise(mean(number))
-    ))
-    futile.logger::flog.info(paste0(
-      "min choiceset size: ",
-      df %>%
-        dplyr::summarise(number = n()) %>%
-        dplyr::summarise(min(number))
-    ))
-    futile.logger::flog.info(paste0(
-      "max choiceset size: ",
-      df %>%
-        dplyr::summarise(number = n()) %>%
-        dplyr::summarise(max(number))
-    ))
+    avg_choiceset_size <- df %>%
+      dplyr::summarise(number = n()) %>%
+      dplyr::summarise(mean(number))
+
+    min_choiceset_size <- df %>%
+      dplyr::summarise(number = n()) %>%
+      dplyr::summarise(min(number))
+
+    max_choiceset_size <- df %>%
+      dplyr::summarise(number = n()) %>%
+      dplyr::summarise(max(number))
+
+    # info or warnings re choiceset dimensions
+
+    if (avg_choiceset_size < 10 |
+        max_choiceset_size > 10 | min_choiceset_size < 10) {
+      futile.logger::flog.warn(
+        paste0(
+          "Choiceset dimensions outside of expected values. Average size: ",
+          avg_choiceset_size,
+          "; maximum size: ",
+          max_choiceset_size,
+          "; minimum size: ",
+          min_choiceset_size
+        )
+      )
+    } else {
+      # log some choiceset stats
+      futile.logger::flog.info(paste0("average choiceset size: ",
+                                      avg_choiceset_size))
+      futile.logger::flog.info(paste0("min choiceset size: ",
+                                      min_choiceset_size))
+      futile.logger::flog.info(paste0("max choiceset size: ",
+                                      max_choiceset_size))
+    }
+
 
     df <- dplyr::ungroup(df)
 
     return(df)
 
     #end function
-    }
+  }
