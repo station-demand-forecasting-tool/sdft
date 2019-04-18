@@ -2,21 +2,21 @@
 % Please edit documentation in R/sdr_generate_probability_table.R
 \name{sdr_generate_probability_table}
 \alias{sdr_generate_probability_table}
-\title{Creates and populates the probability table of a station}
+\title{Creates and populates the probability table for a station}
 \usage{
 sdr_generate_probability_table(schema, df, tablesuffix)
 }
 \arguments{
-\item{schema}{A text string for the database schema name.}
+\item{schema}{Character. for the database schema name.}
 
 \item{df}{A dataframe containing the choicesets.}
 
-\item{tablesuffix}{The suffix of the probability table - either crscode
-(isolation) or 'concurrent' (concurrent) is expected.}
+\item{tablesuffix}{Character, the suffix of the probability table - either
+crscode (isolation) or 'concurrent' (concurrent) is expected.}
 }
 \description{
-Creates and populates the probability table of a station (isolation)
+Creates and populates the probability table for a station (isolation)
 or stations (concurrent) with the variables required to apply
-the station choice model. The variables are drawn from the modelschema.proposed_stations
-and data.stations tables.
+the station choice model. The variables are drawn from the
+schema.proposed_stations and data.stations tables.
 }

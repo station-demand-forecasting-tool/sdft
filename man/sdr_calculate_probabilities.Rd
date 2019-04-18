@@ -2,18 +2,19 @@
 % Please edit documentation in R/sdr_calculate_probabilities.R
 \name{sdr_calculate_probabilities}
 \alias{sdr_calculate_probabilities}
-\title{Calculates probabilities for postcode choicesets}
+\title{Calculates the probabilities for postcode choicesets}
 \usage{
 sdr_calculate_probabilities(schema, tablesuffix)
 }
 \arguments{
-\item{schema}{A text string for the database schema name.}
+\item{schema}{Character, the database schema name.}
 
-\item{tablesuffix}{The suffix of the probability table - either crscode
-(isolation) or 'concurrent' (concurrent) is expected.}
+\item{tablesuffix}{Character, the suffix of the probability table - either
+crscode (isolation) or 'concurrent' (concurrent) is expected.}
 }
 \description{
-Calculates the probability of each station being chosen within the postcode choicesets
-contained in the specified probability table for the proposed station (isolation)
-or stations (concurrent). The required columns are created in the table.
+Calculates the probability of each station being chosen within the postcode
+choicesets contained in the specified probability table for the proposed
+station (isolation) or stations (concurrent). The required columns are
+created in the table.
 }

@@ -7,65 +7,68 @@
 sdr_generate_choicesets(schema, crs, existing = FALSE, abs_crs = NULL)
 }
 \arguments{
-\item{schema}{A text string for the database schema name.}
+\item{schema}{Character, the database schema name.}
 
-\item{crs}{A character vector of the crscode(s) of the station(s)
+\item{crs}{Character vector of the crscode(s) of the station(s)
 for which a set of postcode choicesets is required.}
 
 \item{existing}{Logical. Indicates whether the station crscodes contained in
-\code{crs} are for existing (\code{TRUE}) or proposed (\code{FALSE}) stations.
-Default is \code{FALSE}.}
+\code{crs} are for existing (TRUE) or proposed (FALSE) stations.
+Default is FALSE.}
 
-\item{abs_crs}{Character. A single crs code of an existing station for which an
-after set of postcode choicesets is required. Optional.}
+\item{abs_crs}{Character, a single crs code of an existing station for which
+an after set of postcode choicesets is required. Optional.}
 }
 \value{
-Returns a data frame containing the postcode choicesets with stations ranked
-by distance.
+Returns a data frame containing the postcode choicesets with stations
+ranked by distance from the postcode centroid.
 }
 \description{
 For a given station or stations identifies the postcodes within 60 minutes of
-the station or stations and then generates a choice set of the nearest 10 stations to each of those
-postcodes. The function is also able to generate before and after choicesets for abstraction analysis.
+the station or stations and then generates a choice set of the nearest 10
+stations to each of those postcodes. The function is also able to generate
+before and after choicesets for abstraction analysis.
 }
 \details{
-If existing is set to \code{FALSE} then the crscodes in \code{crs} must be proposed
-stations. The function will obtain the 60 minute service area geometry from the
-modelschema.proposed_stations table. If there is more than one crscode in \code{crs} then
-st_union will be applied to the individual service area geometries to create a
-single merged 60 minute service area (this is used when the concurrent mode has
-been selected for the model run).
+If \code{existing} is set to FALSE then the crscode(s) in \code{crs} must be
+for proposed stations. The function obtains the 60 minute service area geometry
+from the schema.proposed_stations table. If there is more than one crscode in
+\code{crs} then st_union will be applied to the individual service area
+geometries to create a single merged 60 minute service area (this is used when
+the concurrent mode has been selected for the model run). The function uses
+parallel processing via the foreach package and requires the clusters to be
+configured prior to calling the function.
 
-If existing is set to \code{TRUE} then the crscodes in \code{crs} must be existing
-stations (normally a single station). The function will obtain the 60 minute service
-area geometry from the data.stations table.
+If \code{existing} is set to TRUE then the crscode(s) in \code{crs} must be
+existing stations (normally a single station). The function will obtain the
+60 minute service area geometry from the data.stations table.
 
 If \code{abs_crs} is passed to the function then it should be a single crscode
-of an existing station. This is used to control whether a before or after set of
-postcode choicesets is required. To obtain a before choiceset for abstraction analysis
-pass the existing station crscode to the function using \code{crs}, set \code{existing}
-to \code{TRUE} and do not pass \code{abs_crs}. To obtain an after choiceset for
-abstraction analysis pass the proposed station(s) in \code{crs}, set \code{existing}
-to \code{FALSE} and pass the crscode of the existing station for which abstraction analysis
-is being carried out to \code{abs_crs}.
+of an existing station. This is used to control whether a before or after set
+of postcode choicesets is required. To obtain a before choiceset for
+abstraction analysis pass the existing station crscode to the function using
+\code{crs}, set \code{existing} to TRUE and do not pass \code{abs_crs}. To
+obtain an after choiceset for abstraction analysis pass the proposed station(s)
+in \code{crs}, set \code{existing} to FALSE and pass the crscode of the
+existing station for which abstraction analysis is being carried out to
+\code{abs_crs}.
 
-The function uses parallel processing via the foreach package and requires
-the clusters to be configured prior to calling the function.
-
-The function submits db queries which rely on several pgRouting wrapper functions that must be
-located in the openroads schema: \code{create_pgr_vnodes},
+The function submits db queries which rely on several bespoke pgRouting wrapper
+functions that must be located in the openroads schema: \code{create_pgr_vnodes},
 \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints},
 \code{sdr_pc_station_withpoints_nobbox}, and \code{bbox_pgr_withpointscost}.
 
-Two views are created for use by these functions. The first is modelschema.centroidnodes
-which is a union of virtual nodes for the proposed stations (which are created in the query)
-and virtual nodes for existing stations. The second is modelschema.stations which is a union of
-stations from data.stations and modelschema.proposed_stations containing the distance-based
-service areas used in identfying the nearest 10 stations to each postcode.
+Two views are created for use by these functions. The first is schema.centroidnodes
+which is a union of virtual nodes for the proposed stations (which are created
+in the query) and virtual nodes for existing stations. The second is
+schema.stations which is a union of stations from data.stations and
+schema.proposed_stations containing the distance-based service areas used in
+identfying the nearest 10 stations to each postcode.
 
 For maximum flexibility to also use this function for abstraction analysis
 without code repetition, it should be noted that the union queries are
-used even when \code{existing} is set to \code{TRUE} and the crscode in \code{crs} is
-an existing station. In this case there will be no match with the stations in
-modelschema.proposed_stations and that part of the union query will simply return null.
+used even when \code{existing} is set to TRUE and the crscode in \code{crs} is
+an existing station. In this case there will be no match with any stations in
+schema.proposed_stations and that part of the union query will simply return
+null.
 }

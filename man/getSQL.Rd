@@ -14,8 +14,10 @@ A formatted sql query as a string.
 }
 \description{
 This function is intended to read a long and complex SQL query from a file,
-where it could be edited in a SQL editor, that can then be submitted as a postgreSQL query.
+where it could be edited in a SQL editor, that can then be submitted as a
+postgreSQL query.
 }
 \details{
-This function is based on code obtained from \url{https://stackoverflow.com/questions/44853322/how-to-read-the-contents-of-an-sql-file-into-an-r-script-to-run-a-query?noredirect=1&lq=1}.
+This function is based on code obtained from:
+\url{https://stackoverflow.com/questions/44853322/how-to-read-the-contents-of-an-sql-file-into-an-r-script-to-run-a-query?noredirect=1&lq=1}.
 }
