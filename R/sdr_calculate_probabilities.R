@@ -1,13 +1,13 @@
-#' Calculates probabilities for postcode choicesets
+#' Calculates the probabilities for postcode choicesets
 #'
-#' Calculates the probability of each station being chosen within the postcode choicesets
-#' contained in the specified probability table for the proposed station (isolation)
-#' or stations (concurrent). The required columns are created in the table.
-#' @param schema A text string for the database schema name.
-#' @param tablesuffix The suffix of the probability table - either crscode
-#' (isolation) or 'concurrent' (concurrent) is expected.
+#' Calculates the probability of each station being chosen within the postcode
+#' choicesets contained in the specified probability table for the proposed
+#' station (isolation) or stations (concurrent). The required columns are
+#' created in the table.
+#' @param schema Character, the database schema name.
+#' @param tablesuffix Character, the suffix of the probability table - either
+#' crscode (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
-
 
 sdr_calculate_probabilities <- function(schema, tablesuffix) {
 
@@ -35,15 +35,14 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
   var_buses <- .75848
 
   # create probability columns
-
   query <-
     paste(
-      "ALTER TABLE ", schema, ".probability_",
+      "alter table ", schema, ".probability_",
       tolower(tablesuffix),
       "
-      ADD COLUMN te19_expv numeric,
-      ADD COLUMN te19_sum_expv numeric,
-      ADD COLUMN te19_prob numeric
+      add column te19_expv numeric,
+      add column te19_sum_expv numeric,
+      add column te19_prob numeric
       "
       ,
       sep = ""
@@ -53,14 +52,13 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
                 x = query)
   sdr_dbExecute(con, query)
 
-  #calculate probability
-
+  # calculate probability
   query <-
     paste0(
-      "UPDATE ", schema, ".probability_",
+      "update ", schema, ".probability_",
       tolower(tablesuffix),
       "
-      SET te19_expv =
+      set te19_expv =
       exp(
       (nearest * ", var_nearest ,") +
       (sqr_dist * ", var_sqr_dist ,") +
@@ -77,11 +75,11 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
 
   query <-
     paste0(
-      "UPDATE ", schema, ".probability_",
+      "update ", schema, ".probability_",
       tolower(tablesuffix),
-      " SET te19_sum_expv = b.sumexpv from
+      " set te19_sum_expv = b.sumexpv from
       (
-      SELECT id, (sum(te19_expv) OVER (PARTITION BY postcode)) as sumexpv FROM ", schema, ".probability_",
+      select id, (sum(te19_expv) over (partition by postcode)) as sumexpv from ", schema, ".probability_",
       tolower(tablesuffix),
       "
       ) as b
@@ -94,10 +92,10 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
 
   query <-
     paste(
-      "UPDATE ", schema, ".probability_",
+      "update ", schema, ".probability_",
       tolower(tablesuffix),
       "
-      SET te19_prob =
+      set te19_prob =
       te19_expv / te19_sum_expv
       ",
       sep = ""
@@ -105,8 +103,7 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
   sdr_dbExecute(con, query)
 
  # create indexes
-
-  query <-
+ query <-
     paste(
       "
       create index on ", schema, ".probability_",
@@ -138,5 +135,4 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
       sep = ""
     )
   sdr_dbExecute(con, query)
-
 }

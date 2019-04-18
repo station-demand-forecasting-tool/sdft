@@ -2,12 +2,12 @@
 % Please edit documentation in R/tools.R
 \name{sdr_dbGetQuery}
 \alias{sdr_dbGetQuery}
-\title{Formats an RPostgreSQL getQuery and then submits the query}
+\title{Formats an RPostgres getQuery and then submits the query}
 \usage{
 sdr_dbGetQuery(con, query)
 }
 \arguments{
-\item{con}{A database connection object for RPostgreSQL.}
+\item{con}{A database connection object for RPostgres.}
 
 \item{query}{The query to be formatted.}
 }

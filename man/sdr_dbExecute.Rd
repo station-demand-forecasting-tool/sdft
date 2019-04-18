@@ -2,17 +2,18 @@
 % Please edit documentation in R/tools.R
 \name{sdr_dbExecute}
 \alias{sdr_dbExecute}
-\title{Formats an RPostgreSQL dbExecute and then submits the query}
+\title{Formats an RPostgres dbExecute and then submits the query}
 \usage{
 sdr_dbExecute(con, query)
 }
 \arguments{
-\item{con}{A database connection object for RPostgreSQL.}
+\item{con}{A database connection object for RPostgres.}
 
 \item{query}{The query to be formatted.}
 }
 \description{
 This function allows the text of a SQL query to be formatted across multiple
 lines in an R document, by stripping the line breaks prior to submitting the
-query based on provided \code{con} object.
+query based on provided \code{con} object. Also logs the queries if in debug
+mode.
 }

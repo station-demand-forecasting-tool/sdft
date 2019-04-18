@@ -1,9 +1,9 @@
--- Adapted from code block 11.2 from "pgROUTING - a practical guide".
--- Amended to return the geom of the virtual nodes (needed for enhanced bbox functions),
--- or otherwise the geom of a real node if fraction <0.01 (edge start) or >0.99 (edge end)
--- Returns virtual node pids and fraction, or if virtual node is at the same location as a source
--- or target real node (i.e either end of an edge) the source or target node pid
--- is returned (otherwise routing would not work).
+-- Adapted from code block 11.2 from "pgROUTING - a practical guide". Amended to
+-- return the geom of the virtual nodes (needed for enhanced bbox functions), or
+-- otherwise the geom of a real node if fraction <0.01 (edge start) or >0.99
+-- (edge end) Returns virtual node pids and fraction, or if virtual node is at
+-- the same location as a source or target real node (i.e either end of an edge)
+-- the source or target node pid is returned (otherwise routing would not work).
 create or replace function
     openroads.create_pgr_vnodes(network_sql text,
     points geometry[], tolerance float default 0.01)

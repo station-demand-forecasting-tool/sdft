@@ -1,2 +1,5 @@
+^sdr\.log$
+^sa\.log$
+^inst$
 ^.*\.Rproj$
 ^\.Rproj\.user$

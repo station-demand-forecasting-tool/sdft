@@ -1,8 +1,5 @@
-
-
 # create virtual nodes table for use in pgRouting functions
-# using postcode centroids (from AOI) and all railway stations
-# including proposed station to be modelled <- not implemented yet
+# using postcode centroids and railway stations.
 
 # need to check  if any nulls are returned?
 # depends on the search tolerance. Currently set at 1km, can probably

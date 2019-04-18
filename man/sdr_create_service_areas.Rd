@@ -4,29 +4,33 @@
 \alias{sdr_create_service_areas}
 \title{Creates a distance or time based network service area around stations}
 \usage{
-sdr_create_service_areas(schema, df, sa, table, cost = "len",
+sdr_create_service_areas(schema, df, identifier, sa, table, cost = "len",
   target = 0.9)
 }
 \arguments{
-\item{schema}{A text string for the database schema name.}
+\item{schema}{Character, the database schema name.}
 
-\item{df}{A dataframe with a column called "location" which has easting and
-northing of the station location.}
+\item{df}{A data frame with a column named "location"
+which has the easting and northing of the station location.}
 
-\item{sa}{A vector of integer values for the required service areas. Should
-be in metres when cost is distance and minutes when cost is time.}
+\item{identifier}{Character, uniquely identifies a station in both the
+provided data frame \emph{and} in the target \code{table}.}
 
-\item{table}{A text string for the database table name.}
+\item{sa}{Numeric vector of integer values for the required service areas.
+Should be in metres when cost is distance and minutes when cost is time.}
 
-\item{cost}{A text string, either "len" for a distance-based service area or
+\item{table}{Character, the target database table name.}
+
+\item{cost}{Character, either "len" for a distance-based service area or
 "time" for a time-based service area. Default is "len".}
 
-\item{target}{The target percent of area of convex hull that ST_ConvexHull
-will try to approach before giving up or exiting. Default is 0.9.}
+\item{target}{Numeric, the target percent of area of convex hull that
+ST_ConvexHull will try to approach before giving up or exiting. Default is 0.9.}
 }
 \description{
 Creates a distance or time based network service area around stations in
-the provided data frame using the pgRouting function \code{pgr_withpointsdd}. The
-service area geometry is written to the specified database table in the
-specified database schema.
+the provided data frame using the pgRouting function \code{pgr_withpointsdd}.
+The service area geometry is written to the specified database \code{table}
+in the specified database \code{schema}. The supplied \code{identifier} links
+the stations in the data frame and the database table. Uses parallel processing.
 }

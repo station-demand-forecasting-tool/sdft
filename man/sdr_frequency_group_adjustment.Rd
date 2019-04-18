@@ -7,14 +7,14 @@
 sdr_frequency_group_adjustment(schema, df, tablesuffix)
 }
 \arguments{
-\item{schema}{A text string for the database schema name.}
+\item{schema}{Character, the database schema name.}
 
 \item{df}{A data frame containing the frequency group input. In isolation mode
 this will relate to a specific station. In concurrent mode there will only be
 a single frequency group across all stations.}
 
-\item{tablesuffix}{The suffix of the probability table to be updated - either a crscode
-(isolation) or 'concurrent' (concurrent) is expected.}
+\item{tablesuffix}{Character, the suffix of the probability table to be
+updated - either a crscode (isolation) or 'concurrent' (concurrent) is expected.}
 }
 \description{
 Updates the probability table for a station (isolation) or

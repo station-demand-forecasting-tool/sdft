@@ -1,4 +1,5 @@
--- enhanced from: https://gis.stackexchange.com/questions/88196/how-can-i-transform-polylines-into-points-every-n-metres-in-postgis
+-- enhanced from:
+-- https://gis.stackexchange.com/questions/88196/how-can-i-transform-polylines-into-points-every-n-metres-in-postgis
 -- creates a table of virtual nodes for roadlinks
 -- node pid created as negative integer
 -- requires sequence called vnodes_pid_seq starting at 10000000
@@ -20,7 +21,8 @@ geometries as (
     select
         i, linem, edge_id,
         (st_dump(st_geometryn(st_locatealong(linem, i), 1))).geom as geom
-        -- note the .geom construct because st_dump returns a geom component and an array of integers (path).
+        -- note the .geom construct because st_dump returns a geom component and
+        -- an array of integers (path).
     from linemeasure),
 points as (
     select
@@ -28,6 +30,7 @@ points as (
         st_setsrid(st_makepoint(st_x(geom), st_y(geom)), 27700) as geom
 from geometries),
 fractions as (
-select -pid as pid, edge_id, geom as the_geom, st_linelocatepoint(linem, geom) as fraction from points order by pid asc)
+select -pid as pid, edge_id, geom as the_geom, st_linelocatepoint(linem, geom)
+as fraction from points order by pid asc)
 -- only want nodes that are not existing source or target nodes
 select * from fractions where fraction > 0 and fraction < 1

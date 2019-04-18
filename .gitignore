@@ -29,3 +29,5 @@ rsconnect/
 # input files
 /inst/example_input
 sdr.log
+sdr_full.log
+sa.log
