@@ -4,12 +4,12 @@
 #' stations (concurrent), adjusting the frequency variable for existing stations
 #' based on information provided in the frequency group input file.
 #'
-#' @param schema A text string for the database schema name.
+#' @param schema Character, the database schema name.
 #' @param df A data frame containing the frequency group input. In isolation mode
 #' this will relate to a specific station. In concurrent mode there will only be
 #' a single frequency group across all stations.
-#' @param tablesuffix The suffix of the probability table to be updated - either a crscode
-#' (isolation) or 'concurrent' (concurrent) is expected.
+#' @param tablesuffix Character, the suffix of the probability table to be
+#' updated - either a crscode (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
 sdr_frequency_group_adjustment <- function(schema, df, tablesuffix) {
   # count number of stations in the frequency group

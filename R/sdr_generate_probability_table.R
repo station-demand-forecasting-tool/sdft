@@ -1,16 +1,16 @@
-#' Creates and populates the probability table of a station
+#' Creates and populates the probability table for a station
 #'
-#' Creates and populates the probability table of a station (isolation)
+#' Creates and populates the probability table for a station (isolation)
 #' or stations (concurrent) with the variables required to apply
-#' the station choice model. The variables are drawn from the modelschema.proposed_stations
-#' and data.stations tables.
-#' @param schema A text string for the database schema name.
+#' the station choice model. The variables are drawn from the
+#' schema.proposed_stations and data.stations tables.
+#'
+#' @param schema Character. for the database schema name.
 #' @param df A dataframe containing the choicesets.
-#' @param tablesuffix The suffix of the probability table - either crscode
-#' (isolation) or 'concurrent' (concurrent) is expected.
+#' @param tablesuffix Character, the suffix of the probability table - either
+#' crscode (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
 sdr_generate_probability_table <- function(schema, df, tablesuffix) {
-
   query <- paste0(
     "create table ", schema, ".probability_",
     tablesuffix,
@@ -47,7 +47,6 @@ sdr_generate_probability_table <- function(schema, df, tablesuffix) {
   )
 
   # populate columns
-
   query <- paste0(
     "
     with tmp as (

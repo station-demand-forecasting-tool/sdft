@@ -1,39 +1,47 @@
 #' Creates a GeoJSON probabilistic catchment for a station
 #'
 #' Creates a GeoJSON probabilistic catchment for a station. Includes a spatial
-#' query to check that any candidate postcodes are within the 60 minute service area of the
-#' station (only important for \emph{concurrent} mode as for \emph{isolation} mode only those postcodes
-#' within 60 minutes of a station will be in that station's probability table).
+#' query to check that any candidate postcodes are within the 60 minute service
+#' area of the station (only important for \emph{concurrent} mode as for
+#' \emph{isolation} mode only those postcodes within 60 minutes of a station
+#' will be in that station's probability table).
 #'
-#' If \code{type} is set to "proposed" then the station defined by \code{crs} is assumed to be
-#' a proposed station present in the modelschema.proposed_stations table. The 60-minute service area
-#' for the station is expected to be in this table and the GeoJSON catchment is written to this table.
+#' If \code{type} is set to "proposed" then the station defined by \code{crs}
+#' is assumed to be a proposed station present in the schema.proposed_stations
+#' table. The 60-minute service area for the station is expected to be in this
+#' table and the GeoJSON catchment is also written to this table.
 #'
-#' If \code{type} is "abstraction" then the station defined by \code{crs} is assumed to be
-#' an at-risk station that is part of an abstraction analysis. The 60-minute service area for the
-#' station is assumed to be located in the data.stations table and the catchment is written to the
-#' modelschema.abstraction_results table. If \code{abs_crs} is not specified then a \emph{before} catchment
-#' is generated for station \code{crs}. If a proposed station is provided in \code{abs_crs} (or this
-#' is given the value "concurrent" in the case of concurent mode) then an \emph{after} catchment is generated,
+#' If \code{type} is "abstraction" then the station defined by \code{crs} is
+#' assumed to be an at-risk station that is part of an abstraction analysis. The
+#' 60-minute service area for the station is assumed to be located in the
+#' data.stations table and the catchment is written to the
+#' schema.abstraction_results table. If \code{abs_crs} is not specified then a
+#' \emph{before} catchment is generated for station \code{crs}. If a proposed
+#' station is provided in \code{abs_crs} (or this is given the value "concurrent"
+#' in the case of concurent mode) then an \emph{after} catchment is generated,
 #' reflecting the situation after \code{abs_crs}.
 #'
-#' @param schema A text string for the database schema name.
-#' @param type Character. Must be either "proposed" or "abstraction". Indicates whether this catchment is required for a proposed station
-#' or as part of an abstraction analysis. See details.
-#' @param crs Character. The crscode of the station the catchment is for.
-#' @param tablesuffix Character. Suffix of the probability table (i.e. the part after "schema.probability_")
-#' @param abs_crs Character. The crscode of a proposed station (or "concurrent" if
-#' using concurrent mode). Only relevant if \code{type} is set to "abstraction". When specified an
-#' \emph{after} catchment is generated for station \code{crs} with station \code{abs_crs} present.
-#' @param cutoff Numeric. Defines the threshold probability below which to exclude a postcode from
-#' the catchment. Default is 0.01 (i.e. any postcodes with a probability of \eqn{>= 0.01}
-#' for the station defined in \code{crs} will be included in the catchment).
-#' @param tolerance numeric. Tolerance for ST_SimplifyPreserveTopology. Default 0.1.
+#' @param schema Character, the database schema name.
+#' @param type Character, must be either "proposed" or "abstraction". Indicates
+#' whether this catchment is required for a proposed station or as part of an
+#' abstraction analysis. See details.
+#' @param crs Character, the crscode of the station the catchment is for.
+#' @param tablesuffix Character, suffix of the probability table (i.e. the part
+#' after "schema.probability_")
+#' @param abs_crs Character, the crscode of a proposed station (or "concurrent"
+#' if using concurrent mode). Only relevant if \code{type} is set to
+#' "abstraction". When specified an \emph{after} catchment is generated for
+#' station \code{crs} with station \code{abs_crs} present.
+#' @param cutoff Numeric, defines the threshold probability below which to
+#' exclude a postcode from the catchment. Default is 0.01 (i.e. any postcodes
+#' with a probability of \eqn{>= 0.01} for the station defined in \code{crs}
+#' will be included in the catchment).
+#' @param tolerance Numeric, tolerance for ST_SimplifyPreserveTopology. Default
+#' is 0.1.
 #' @export
 sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = NULL, cutoff = 0.01, tolerance = 0.1) {
 
-
-
+  # define table and column names and where clauses
   if (type == "proposed") {
     update_table <- paste0(schema, ".proposed_stations")
     set_column <- "catchment"
@@ -54,10 +62,10 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
     stop("type not valid")
   }
 
-  futile.logger::flog.info(paste0("creating GeoJSON catchment, updating table: ", update_table))
-  futile.logger::flog.info(paste0("creating GeoJSON catchment, updating column: ", set_column))
-  futile.logger::flog.info(paste0("creating GeoJSON catchment, using 60 minute sa from table: ", sa_table))
-  futile.logger::flog.info(paste0("creating GeoJSON catchment, where: ", where_clause))
+  futile.logger::flog.info(paste0("Creating GeoJSON catchment, updating table: ", update_table))
+  futile.logger::flog.info(paste0("Creating GeoJSON catchment, updating column: ", set_column))
+  futile.logger::flog.info(paste0("Creating GeoJSON catchment, using 60 minute sa from table: ", sa_table))
+  futile.logger::flog.info(paste0("Creating GeoJSON catchment, where: ", where_clause))
 
   query <- paste0(
     "update ", update_table, " set ", set_column, " = (select row_to_json(fc)
@@ -68,7 +76,7 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
     from (
     select
     'Feature' as \"type\",
-    ST_AsGeoJSON(ST_Transform(ST_SimplifyPreserveTopology(b.geom, ", tolerance, "), 4326)) :: json as \"geometry\",
+    st_asgeojson(st_transform(st_simplifypreservetopology(b.geom, ", tolerance, "), 4326)) :: json as \"geometry\",
     (
     select json_strip_nulls(row_to_json(t))
     from (
@@ -80,8 +88,8 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
       from ", schema, ".probability_",
     tablesuffix,
     " as a
-    LEFT JOIN data.postcode_polygons b ON a.postcode = b.postcode
-    LEFT JOIN data.pc_pop_2011 c ON a.postcode = c.postcode
+    left join data.postcode_polygons b on a.postcode = b.postcode
+    left join data.pc_pop_2011 c on a.postcode = c.postcode
     where a.crscode = '",
     crs,
     "' and a.te19_prob > ", cutoff, " and st_within(c.geom, (select service_area_60mins from ", sa_table, " where crscode = '",
@@ -92,4 +100,3 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
     )
   sdr_dbExecute(con, query)
 }
-
