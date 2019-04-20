@@ -29,13 +29,18 @@ if (file.exists("sdr.log")) {
   file.remove("sdr.log")
 }
 
-if (file.exists("sa.log")) {
-  file.remove("sa.log")
-}
-
+threshold <- "INFO" # DEBUG, INFO, WARN, ERROR, FATAL
 flog.appender(appender.file("sdr.log"))
 # set logging level
-flog.threshold("INFO")    # DEBUG, INFO, WARN, ERROR, FATAL
+flog.threshold(threshold)
+
+cat(paste0(
+  "INFO [",
+  format(Sys.time()), "] ",
+  "Starting model. Logging threshold is ", threshold, "\n"
+),
+file = "sdr.log")
+
 
 # capture R errors and warnings to be logged by futile.logger
 options(
@@ -759,15 +764,6 @@ for (i in c(1, 60)) {
     )
   sdr_dbExecute(con, query)
 }
-
-# read sa.log into sdr.log - from logging workaround in foreach using sink() in
-# sdr_create_service_areas
-cat(
-  read_lines(file = "sa.log"),
-  file = "sdr.log",
-  append = TRUE,
-  fill = TRUE
-)
 
 flog.info("Station service area generation completed")
 

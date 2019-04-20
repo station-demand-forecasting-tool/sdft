@@ -32,16 +32,8 @@ sdr_create_service_areas <-
 
     # begin the service area loop i
     df <-
-      foreach::foreach(
-        i = sa,
-        .noexport = "con",
-        .packages = c("DBI", "RPostgres", "dplyr")
-      ) %dopar%
+      for (i in sa)
       {
-        # futile.logger can't write to sdr.log within a foreach
-        # there'd probably a solution but a workaround is to specify sink() to
-        # another file and futile.logger will log to this.
-        sink("sa.log", append = TRUE)
         if (cost == "len") {
           column_name <- paste0("service_area_", i / 1000, "km")
           # for distance set buffer to same as distance - not possible for road
@@ -78,8 +70,33 @@ sdr_create_service_areas <-
         # with a maximum 1000 km tolerance to nearest edge.
 
         # Begin the stations loop j
-        for (j in 1:total_stations) {
-          futile.logger::flog.info(paste0("creating ", column_name, " for ", df[j, paste0(identifier)]))
+        #for (j in 1:total_stations) {
+        foreach::foreach(
+          j = 1:total_stations,
+          .noexport = "con",
+          .export = "threshold",
+          .packages = c("DBI", "RPostgres", "dplyr")
+        ) %dopar%
+          {
+          # futile.logger can't write to sdr.log within a foreach
+            # there's probably a solution but a workaround is to use cat().
+            # write to a separate file for each worker - compile after %dopar%
+            if (threshold == "DEBUG" |
+                threshold == "INFO") {
+              cat(
+                paste0(
+                  "INFO [",
+                  format(Sys.time()),
+                  "] Creating ",
+                  column_name,
+                  " for ",
+                  df[j, paste0(identifier)],
+                  "\n"
+                ),
+                file = paste0(j,".log"),
+                append = TRUE
+              )
+            }
           query <- paste0(
             "with tmp as
       (
@@ -190,4 +207,18 @@ sdr_create_service_areas <-
           }
         }
       } # end %dopar%
+
+    # append logs to sdr.log
+    for (i in 1:total_stations) {
+      file.append("sa.log", paste0(i, ".log"))
+      file.remove(paste0(i, ".log"))
+    }
+    cat(
+      sort(read_lines(file = "sa.log")),
+      file = "sdr.log",
+      append = TRUE,
+      fill = TRUE
+    )
+
+
   } # end function
