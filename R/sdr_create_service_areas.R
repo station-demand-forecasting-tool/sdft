@@ -31,7 +31,6 @@ sdr_create_service_areas <-
     total_stations <- nrow(df)
 
     # begin the service area loop i
-    df <-
       for (i in sa)
       {
         if (cost == "len") {
@@ -157,15 +156,23 @@ sdr_create_service_areas <-
 
           total_null <- nrow(stations_null) # set number of records
           if (total_null > 0) {
-            futile.logger::flog.info(
-              paste0(
-                "null returned for ",
-                column_name,
-                " for ",
-                df[j, paste0(identifier)],
-                ": re-running with target = 1"
+            if (threshold == "DEBUG" |
+                threshold == "INFO") {
+              cat(
+                paste0(
+                  "INFO [",
+                  format(Sys.time()),
+                  "] Null returned for ",
+                  column_name,
+                  " for ",
+                  df[j, paste0(identifier)],
+                  ": re-running with target = 1",
+                  "\n"
+                ),
+                file = paste0(j,".log"),
+                append = TRUE
               )
-            )
+            }
             query <- paste0(
               "with tmp as
       (
@@ -205,20 +212,22 @@ sdr_create_service_areas <-
             )
             sdr_dbExecute(con, query)
           }
-        }
-      } # end %dopar%
+        } # end %dopar%
+      } # end for i in sa
 
-    # append logs to sdr.log
+    # collect log files into sa.log
     for (i in 1:total_stations) {
       file.append("sa.log", paste0(i, ".log"))
       file.remove(paste0(i, ".log"))
     }
+    # append sa.log to sdr.log
     cat(
       sort(read_lines(file = "sa.log")),
       file = "sdr.log",
       append = TRUE,
       fill = TRUE
     )
+    file.remove("sa.log")
 
 
   } # end function
