@@ -24,9 +24,14 @@ authorized_pg_user <- "postgres"
 
 # set up logging
 
-# delete existing log file
+# delete existing log files
 if (file.exists("sdr.log")) {
   file.remove("sdr.log")
+}
+
+# delete existing log file
+if (file.exists("sa.log")) {
+  file.remove("sa.log")
 }
 
 threshold <- "INFO" # DEBUG, INFO, WARN, ERROR, FATAL
@@ -61,7 +66,7 @@ options(
 
 # During testing set this variable to TRUE. This produces fake 60-minute
 # proposed station service areas which are actually only 5-minute service areas.
-testing <- TRUE
+testing <- FALSE
 flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 
 # Set up a database connection.
@@ -167,7 +172,13 @@ stations <-
       "stn_east" = "character",
       "stn_north" = "character",
       "acc_east" = "character",
-      "acc_north" = "character"
+      "acc_north" = "character",
+      "ticketm" = "logical",
+      "busint" = "logical",
+      "cctv" = "logical",
+      "terminal" = "logical",
+      "electric" = "logical",
+      "tcbound" = "logical"
     ),
     stringsAsFactors = FALSE,
     na.strings = c("")
