@@ -66,7 +66,7 @@ options(
 
 # During testing set this variable to TRUE. This produces fake 60-minute
 # proposed station service areas which are actually only 5-minute service areas.
-testing <- FALSE
+testing <- TRUE
 flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 
 # Set up a database connection.
@@ -474,7 +474,13 @@ dbWriteTable(
   Id(schema = schema, table = "proposed_stations"),
   stations,
   append = FALSE,
-  row.names = TRUE
+  row.names = TRUE,
+  field.types = c(ticketm = "text",
+                  busint = "text",
+                  cctv = "text",
+                  terminal = "text",
+                  electric = "text",
+                  tcbound = "text")
 )
 
 # set up id as primary key
