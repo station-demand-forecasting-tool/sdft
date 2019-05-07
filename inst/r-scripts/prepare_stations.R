@@ -25,9 +25,6 @@ library(checkmate)
 path <-
   file.path("inst", "example_input", fsep = .Platform$file.sep)
 
-# Postgresql authorized user for server
-authorized_pg_user <- "postgres"
-
 # set up logging
 
 # delete existing log files
@@ -44,13 +41,6 @@ threshold <- "INFO" # DEBUG, INFO, WARN, ERROR, FATAL
 flog.appender(appender.file("sdr.log"))
 # set logging level
 flog.threshold(threshold)
-
-cat(paste0(
-  "INFO [",
-  format(Sys.time()), "] ",
-  "Starting model. Logging threshold is ", threshold, "\n"
-),
-file = "sdr.log")
 
 
 # capture R errors and warnings to be logged by futile.logger
@@ -69,11 +59,6 @@ options(
       }
     })
 )
-
-# During testing set this variable to TRUE. This produces fake 60-minute
-# proposed station service areas which are actually only 5-minute service areas.
-testing <- TRUE
-flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 
 # Set up a database connection.
 # Using keyring package for storing database password in OS credential store
@@ -121,7 +106,7 @@ if (class(checkcl) == "try-error") {
 
 
 # create stations dataframe - populate with crscodes and location coordinates
-query <- paste0("select round(st_x(location_geom)) || ',' || round(st_y(location_geom)) as location from data.stations_nrekb")
+query <- paste0("select crscode, round(st_x(location_geom)) || ',' || round(st_y(location_geom)) as location from data.stations_nrekb")
 stations <- dbGetQuery(con, query)
 
 total_stations <- nrow(stations) # set number of records
