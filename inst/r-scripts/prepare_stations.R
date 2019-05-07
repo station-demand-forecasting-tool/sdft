@@ -109,8 +109,6 @@ if (class(checkcl) == "try-error") {
 query <- paste0("select crscode, round(st_x(location_geom)) || ',' || round(st_y(location_geom)) as location from data.stations_nrekb")
 stations <- dbGetQuery(con, query)
 
-total_stations <- nrow(stations) # set number of records
-
 
 sdr_create_service_areas(
   schema = "data",
