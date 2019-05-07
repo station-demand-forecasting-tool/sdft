@@ -142,7 +142,7 @@ sdr_create_service_areas <-
           # If null, repeat with target set to 1
           query <-
             paste0(
-              "select location from " ,
+              "select ", identifier, " from " ,
               paste0(schema, '.', table),
               " where ",
               column_name,
