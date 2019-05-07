@@ -6,7 +6,7 @@
 
 
 # create stations dataframe - populate with crscodes and location coordinates
-query <- paste0("select crscode, longitude || ',' || latitude as location from data.stations_nrekb;")
+query <- paste0("select round(st_x(location_geom)) || ',' || round(st_y(location_geom)) as location from data.stations_nrekb")
 stations <- dbGetQuery(con, query)
 
 total_stations <- nrow(stations) # set number of records
