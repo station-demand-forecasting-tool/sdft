@@ -68,6 +68,10 @@ sdr_create_service_areas <-
         # nearest edge to the station. This node is found using pgr_pointtoedgenode,
         # with a maximum 1000 km tolerance to nearest edge.
 
+        # NOTE: ST_ConcaveHull can return Points, Linestrings, or Polygons so
+        # necessary to buffer any service area returned as a point or linestring
+        # thus creating a polygon that can be written to the database table.
+
         # Begin the stations loop j
         #for (j in 1:total_stations) {
         foreach::foreach(
@@ -120,15 +124,19 @@ sdr_create_service_areas <-
       left join openroads.roadnodes as a on dd.node = a.id
       left join openroads.vnodesneg_roadlinks as b on dd.node = -b.pid
       order by node
-      )
+      ),
+      tmp2 as (select ST_ConcaveHull(ST_Collect(the_geom), 0.9) as geom from tmp)
       update ",
             paste0(schema, '.', table),
             " set ",
             column_name ,
             " = sa.geom  FROM (
-      SELECT 1 as id, ST_ConcaveHull(ST_Collect(the_geom), ",
-            target,
-            " ) as geom from tmp) as sa
+      SELECT 1 as id,
+      case
+        when ST_GeometryType(geom) != 'ST_Polygon' then st_buffer(geom, 10)
+        else geom
+        end
+        from tmp2) as sa
       WHERE ",
             identifier,
             " = '",
