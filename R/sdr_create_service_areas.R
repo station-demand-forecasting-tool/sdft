@@ -125,7 +125,7 @@ sdr_create_service_areas <-
       left join openroads.vnodesneg_roadlinks as b on dd.node = -b.pid
       order by node
       ),
-      tmp2 as (select ST_ConcaveHull(ST_Collect(the_geom), 0.9) as geom from tmp)
+      tmp2 as (select ST_ConcaveHull(ST_Collect(the_geom), ", target, ") as geom from tmp)
       update ",
             paste0(schema, '.', table),
             " set ",
@@ -136,6 +136,7 @@ sdr_create_service_areas <-
         when ST_GeometryType(geom) != 'ST_Polygon' then st_buffer(geom, 10)
         else geom
         end
+        as geom
         from tmp2) as sa
       WHERE ",
             identifier,
@@ -205,13 +206,20 @@ sdr_create_service_areas <-
       left join openroads.roadnodes as a on dd.node = a.id
       left join openroads.vnodesneg_roadlinks as b on dd.node = -b.pid
       order by node
-      )
+      ),
+      tmp2 as (select ST_ConcaveHull(ST_Collect(the_geom), 1) as geom from tmp)
       update ",
               paste0(schema, '.', table),
               " set ",
               column_name ,
               " = sa.geom  FROM (
-      SELECT 1 as id, ST_ConcaveHull(ST_Collect(the_geom), 1) as geom from tmp) as sa
+      SELECT 1 as id,
+      case
+        when ST_GeometryType(geom) != 'ST_Polygon' then st_buffer(geom, 10)
+        else geom
+        end
+        as geom
+        from tmp2) as sa
       WHERE ",
               identifier,
               " = '",
