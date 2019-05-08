@@ -126,7 +126,7 @@ sdr_generate_choicesets <-
     futile.logger::flog.info("Creating virtual nodes table")
 
     query <- paste0(
-      "create or replace view ",
+      "create materialized view ",
       schema,
       ".centroidnodes as
       with tmp as (
@@ -186,6 +186,16 @@ sdr_generate_choicesets <-
     )
     sdr_dbExecute(con, query)
 
+    # create index
+
+    query <- paste0("create index idx_centroidnodes_pid
+    on ", schema, ".centroidnodes(pid)")
+    sdr_dbExecute(con, query)
+
+    query <- paste0("create index idx_centroidnodes_reference
+    on ", schema, ".centroidnodes(reference)")
+    sdr_dbExecute(con, query)
+
     # create view of existing and proposed station(s)
     futile.logger::flog.info(paste0(
       "Creating stations view for existing stations and: ",
@@ -194,7 +204,7 @@ sdr_generate_choicesets <-
 
     query <- paste0(
       "
-      create or replace view ",
+      create materialized view ",
       schema,
       ".stations as
       select crscode,
@@ -233,6 +243,24 @@ sdr_generate_choicesets <-
       "
     )
     sdr_dbExecute(con, query)
+
+    # create spatial indexes for the service areas
+
+    sa_names <- c("service_area_1km",
+                  "service_area_5km",
+                  "service_area_10km",
+                  "service_area_20km",
+                  "service_area_30km",
+                  "service_area_40km",
+                  "service_area_60km",
+                  "service_area_80km",
+                  "service_area_105km")
+
+    for (sa_name in sa_names) {
+    query <- paste0("create index idx_stations_", sa_name,
+    " on ", schema, ".stations using gist(", sa_name, ")")
+    sdr_dbExecute(con, query)
+    }
 
     # generate choicesets using parallel processing
     futile.logger::flog.info(
@@ -315,6 +343,21 @@ sdr_generate_choicesets <-
             dplyr::arrange(distance_rank)
           } # end if nearestx not empty
         } # end foreach postcode parallel processing
+
+    # drop materialized views
+
+    query <- paste0("
+                drop materialized view " ,
+      schema,
+      ".centroidnodes
+                ")
+    sdr_dbExecute(con, query)
+
+    query <- paste0("
+                drop materialized view " ,
+                    schema, ".stations
+                ")
+    sdr_dbExecute(con, query)
 
     # remove rows (i.e. the choiceset) for any postcodes where none of the crscodes
     # are in the choiceset
