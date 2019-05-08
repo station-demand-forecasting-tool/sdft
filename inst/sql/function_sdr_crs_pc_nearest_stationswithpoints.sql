@@ -41,9 +41,9 @@ select
 				$$service_area_30km$$
 				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_40km) ) >= 10 then
 				$$service_area_40km$$
-				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_30km) ) >= 10 then
+				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_60km) ) >= 10 then
 				$$service_area_60km$$
-				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_40km) ) >= 10 then
+				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_80km) ) >= 10 then
 				$$service_area_80km$$ else $$service_area_105km$$ end', schema) using origin_geom into sa;
 
 
