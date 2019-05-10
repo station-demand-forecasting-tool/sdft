@@ -14,6 +14,8 @@
 #' @param sa Numeric vector of integer values for the required service areas.
 #' Should be in metres when cost is distance and minutes when cost is time.
 #' @param table Character, the target database table name.
+#' @param columns Logical, whether service area columns need to be created in the
+#' target database \code{table}. Default is FALSE.
 #' @param cost Character, either "len" for a distance-based service area or
 #' "time" for a time-based service area. Default is "len".
 #' @param target Numeric, the target percent of area of convex hull that
@@ -25,6 +27,7 @@ sdr_create_service_areas <-
            identifier,
            sa,
            table,
+           columns = TRUE,
            cost = "len",
            target = 0.9) {
     # set number of records
@@ -48,6 +51,8 @@ sdr_create_service_areas <-
           stop("Cost type does not exist")
         }
 
+
+        if (isTRUE(columns)) {
         # create sa column in table
         query <-
           paste0(
@@ -58,6 +63,7 @@ sdr_create_service_areas <-
             " geometry(Polygon,27700);"
           )
         sdr_dbExecute(con, query)
+        }
 
         # Note that the pid provided in the virtual node sql to pgr_withpointsdd
         # must be negative for the virtual nodes to be included when searching
