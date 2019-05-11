@@ -29,3 +29,28 @@ from data.scottish_wp_population b
 WHERE a.wpz = b.id
                 ")
 sdr_dbExecute(con, query)
+
+# create index
+
+query <- paste(
+  "create index idx_workplace2011_geom
+  ON data.workplace2011
+  USING GIST (geom);
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+query <- paste(
+  "create index idx_workplace2011_wz
+  ON data.workplace2011(wz)
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+

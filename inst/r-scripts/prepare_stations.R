@@ -19,12 +19,6 @@ library(DBI)
 library(futile.logger)
 library(checkmate)
 
-# some configuration settings
-
-# main file path
-path <-
-  file.path("inst", "example_input", fsep = .Platform$file.sep)
-
 # set up logging
 
 # delete existing log files
@@ -106,7 +100,7 @@ if (class(checkcl) == "try-error") {
 
 
 # create stations dataframe - populate with crscodes and location coordinates
-query <- paste0("select crscode, round(st_x(location_geom)) || ',' || round(st_y(location_geom)) as location from data.stations_nrekb")
+query <- paste0("select crscode, round(st_x(location_geom)) || ',' || round(st_y(location_geom)) as location from data.stations")
 stations <- dbGetQuery(con, query)
 
 
@@ -114,7 +108,48 @@ sdr_create_service_areas(
   schema = "data",
   df = stations,
   identifier = "crscode",
-  table = "stations_nrekb",
+  table = "station",
   sa = c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000),
   cost = "len"
 )
+
+# 5 minute is to use as fake 60 minute in testing mode
+
+sdr_create_service_areas(
+  schema = "data",
+  df = stations,
+  identifier = "crscode",
+  table = "stations",
+  columns = TRUE,
+  sa = c(5,60),
+  cost = "time"
+)
+
+
+
+# create spatial indexes for the service areas
+
+sa_names <- c("service_area_1km",
+              "service_area_5km",
+              "service_area_10km",
+              "service_area_20km",
+              "service_area_30km",
+              "service_area_40km",
+              "service_area_60km",
+              "service_area_80km",
+              "service_area_105km",
+              "service_area_60mins")
+
+for (sa_name in sa_names) {
+  query <- paste0("create index idx_stations_", sa_name,
+                  " on data.stations using gist(", sa_name, ")")
+  sdr_dbExecute(con, query)
+}
+
+# create 'actual' 60 minute service area for swap between testing modes.
+
+query <- "alter table data.stations add column service_area_60mins_actual geometry(polygon,27700);"
+sdr_dbExecute(con, query)
+
+query <- "update data.stations set service_area_60mins_actual = service_area_60mins"
+sdr_dbExecute(con, query)

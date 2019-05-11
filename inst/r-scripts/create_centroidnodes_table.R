@@ -1,10 +1,13 @@
 # create virtual nodes table for use in pgRouting functions
 # using postcode centroids and railway stations.
 
-# need to check  if any nulls are returned?
+# need to check if any nulls are returned?
 # depends on the search tolerance. Currently set at 1km, can probably
 # exclude any postcode centroids not within 1km of an edge?
 # ok, so just use lateral not left join lateral so nulls are dropped.
+# any orphaned stations due to openroads network (has been an issue in ArcGIS before)?
+# need to check for that and add manually.
+# can also check for missing postcodes and add manually if required.
 
 
 query <- paste0(
@@ -14,7 +17,16 @@ query <- paste0(
 query <- gsub(pattern = '\\s',
               replacement = " ",
               x = query)
-dbGetQuery(con, query)
+dbExecute(con, query)
+
+query <- paste0(
+  " alter table data.stations add column id serial unique;
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
 
 
 query <- paste0(
@@ -39,4 +51,4 @@ query <- paste0(
 query <- gsub(pattern = '\\s',
               replacement = " ",
               x = query)
-dbGetQuery(con, query)
+dbExecute(con, query)

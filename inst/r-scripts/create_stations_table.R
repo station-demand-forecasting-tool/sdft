@@ -157,7 +157,8 @@ services <- vector(mode = "list", length = 8)
     Id(schema = "data", table = "stations_nrekb"),
     data.frame(t(unlist(services))),
     append = TRUE,
-    row.names = FALSE
+    row.names = FALSE,
+    field.types = c(carspaces = "integer")
   )
   # end the loop
 }
@@ -356,4 +357,58 @@ query <- gsub(pattern = '\\s',
               x = query)
 dbExecute(con, query)
 
-# create location
+# create easting and northing
+
+query <- paste(
+  "	alter table data.stations_nrekb
+  add column easting integer,
+  add column northing integer
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+query <- paste(
+  "	update data.stations_nrekb
+  set easting = round(st_x(location_geom))
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+query <- paste(
+  "	update data.stations_nrekb
+  set northing = round(st_y(location_geom))
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+## renamed to data.stations
+
+# create spatial index
+
+query <- paste(
+  "create index idx_stations_location_geom
+  ON data.stations
+  USING GIST (location_geom);
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+
+# Deal with any orphaned stations
+# identify by looking at the area of the 60km service area
+# select crscode, name, ST_Area(service_area_60km) as area from data.stations
+# order by area asc
+
+# shouldn't be an issue now disconnected network components have been removed.
