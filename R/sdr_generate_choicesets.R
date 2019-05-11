@@ -33,12 +33,12 @@
 #' \code{sdr_crs_pc_nearest_stationswithpoints}, \code{sdr_pc_station_withpoints},
 #' \code{sdr_pc_station_withpoints_nobbox}, and \code{bbox_pgr_withpointscost}.
 #'
-#' Two views are created for use by these functions. The first is schema.centroidnodes
-#' which is a union of virtual nodes for the proposed stations (which are created
-#' in the query) and virtual nodes for existing stations. The second is
-#' schema.stations which is a union of stations from data.stations and
-#' schema.proposed_stations containing the distance-based service areas used in
-#' identfying the nearest 10 stations to each postcode.
+#' Two materialized views are created for use by these functions. The first is
+#' schema.centroidnodes which is a union of virtual nodes for the proposed
+#' stations (which are created in the query) and virtual nodes for existing
+#' stations. The second is schema.stations which is a union of stations from
+#' data.stations and schema.proposed_stations containing the distance-based
+#' service areas used in identifying the nearest 10 stations to each postcode.
 #'
 #' For maximum flexibility to also use this function for abstraction analysis
 #' without code repetition, it should be noted that the union queries are

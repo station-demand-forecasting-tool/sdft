@@ -17,7 +17,7 @@
 #' the exogenous population for postcodes that fall within a station's 60-minute
 #' service area.
 #'
-#' There are thre CTE queries involved. The first (nw_pop) is population weighted
+#' There are three CTE queries involved. The first (nw_pop) is population weighted
 #' just by probability when the distance to a station is <= 750m. The second (w_pop)
 #' is population weighted by probability AND by distance decay function. The third
 #' (adj_pop) gets the probability weighted population based on the exogenous data

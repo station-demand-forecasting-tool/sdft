@@ -18,7 +18,7 @@
 #' schema.abstraction_results table. If \code{abs_crs} is not specified then a
 #' \emph{before} catchment is generated for station \code{crs}. If a proposed
 #' station is provided in \code{abs_crs} (or this is given the value "concurrent"
-#' in the case of concurent mode) then an \emph{after} catchment is generated,
+#' in the case of concurrent mode) then an \emph{after} catchment is generated,
 #' reflecting the situation after \code{abs_crs}.
 #'
 #' @param schema Character, the database schema name.

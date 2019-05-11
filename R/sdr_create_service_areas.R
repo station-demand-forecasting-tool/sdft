@@ -244,7 +244,7 @@ sdr_create_service_areas <-
     }
     # append sa.log to sdr.log
     cat(
-      sort(read_lines(file = "sa.log")),
+      sort(readr::read_lines(file = "sa.log")),
       file = "sdr.log",
       append = TRUE,
       fill = TRUE

@@ -50,7 +50,7 @@ sdr_generate_probability_table <- function(schema, df, tablesuffix) {
   query <- paste0(
     "
     with tmp as (
-    select crscode, dailyfrequency_2017_all as frequency, carspaces, category, ticketmachine, busservices, cctv
+    select crscode, frequency as frequency, carspaces, category, ticketmachine, busservices, cctv
     from data.stations
     union all
     select crscode, freq as frequency, carsp as carspaces, category, ticketm as ticketmachine, busint as busservices, cctv
