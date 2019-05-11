@@ -39,11 +39,10 @@ function `pgr_connectedComponents()` and were then used to delete affected edges
 openroads.roadlinks and nodes from openroads.roadnodes. This deals with potential
 problem of the nearest edge to a postcode or station not being connected to the 
 rest of the road network (a potential issue for routing and building station 
-service areas). Centroidnodes and roadlink virtual node tables regenerated.
-
+service areas). Centroidnodes and roadlink virtual node tables regenerated. Example
+disconnected network (in green) shown below:
 <p align="center">
   <img src="man/figures/disconnected_network.jpg"/>
-  <figcaption align="center">Example of a disconnected network (in green)</figcaption>
 </p>
 
 - Full stations data created (up-to-date with latest station openings and closures).
