@@ -218,9 +218,34 @@ if (config$method == "isolation") {
   flog.error("Model method not valid, must be \"isolation\" or \"concurrent\"")
 }
 
+# check region is valid
+check_region <- function(region) {
+  query <- paste0("select '",
+                  region,
+                  "' IN (select region from data.regional_uplifts)")
+  as.logical(sdr_dbGetQuery(con, query))
+}
+
+idx <-
+  which(
+    vapply(stations$region, function(x)
+      check_region(x), logical(1), USE.NAMES = FALSE) == FALSE
+  )
+
+
+if (length(idx) > 0) {
+  preflight_failed <- TRUE
+  flog.error(
+    paste0(
+      "The following region(s) in station input are not valid: ",
+      paste(stations$region[idx], collapse = ", ")
+    )
+  )
+}
+
 # set schema name to job_id. Check begins with a-z, then a-z or 0-9 or _ for an
 # additional 5 matches only. Ensure valid postgresql schema format.
-if (grepl("^[a-z][a-z0-9_]{1,5}$", config$job_id, ignore.case = FALSE)) {
+if (grepl("^[a-z][a-z0-9_]{1,19}$", config$job_id, ignore.case = FALSE)) {
   schema <- config$job_id
 } else {
   preflight_failed <- TRUE
@@ -234,8 +259,8 @@ if (anyDuplicated(stations$crscode) > 0) {
 }
 
 # check each row has a station name - must not be NA
-if (isFALSE(all(sapply(stations$name, function(x)
-  grepl("^[[:alnum:]]+$", x), USE.NAMES = FALSE)))) {
+if (isFALSE(all(vapply(stations$name, function(x)
+  grepl("^[[:alnum:]]+$", x), logical(1), USE.NAMES = FALSE)))) {
   preflight_failed <- TRUE
   flog.error("Station name must be alphanumeric string of length >= 1")
 }
@@ -243,8 +268,8 @@ if (isFALSE(all(sapply(stations$name, function(x)
 # check frequency group format is ok
 fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
 # check if all pairs match the required format
-if (isFALSE(all(sapply(fg_pairs, function(x)
-  grepl("^[A-Z]{3}:[0-9]{1,}$", x), USE.NAMES = FALSE)))) {
+if (isFALSE(all(vapply(fg_pairs, function(x)
+  grepl("^[A-Z]{3}:[0-9]{1,}$", x), logical(1), USE.NAMES = FALSE)))) {
   preflight_failed <- TRUE
   flog.error("Format of frequency groups is not correct")
 }
@@ -252,8 +277,8 @@ if (isFALSE(all(sapply(fg_pairs, function(x)
 # check crscodes in frequency groups are all valid
 # get the unique crscodes from pairs
 fg_crs <-
-  unique(sapply(unlist(fg_pairs), function(x)
-    sub(":.*", "", x), USE.NAMES = FALSE))
+  unique(vapply(fg_pairs, function(x)
+    sub(":.*", "", x), character(1), USE.NAMES = FALSE))
 # get the index for those not valid
 idx <- which(!(fg_crs %in% crscodes$crscode))
 if (length(idx > 0)) {
@@ -268,8 +293,8 @@ if (length(idx > 0)) {
 # i.e. check for CSV input of three uppercase characters separated by commas
 # (also allowing single crscode with no comma). Maximum of three crscodes.
 abs_check <-
-  sapply(na.omit(stations$abstract), function(x)
-    grepl("^([A-Z]{3})(,[A-Z]{3}){0,2}$", x), USE.NAMES = FALSE)
+  vapply(na.omit(stations$abstract), function(x)
+    grepl("^([A-Z]{3})(,[A-Z]{3}){0,2}$", x), logical(1), USE.NAMES = FALSE)
 if (isFALSE(all(abs_check))) {
   preflight_failed <- TRUE
   flog.error("Abstraction stations are not provided in the correct format")
@@ -362,8 +387,8 @@ pop_houses <-
   exogenous %>% filter(type == "population" | type == "houses")
 idx <-
   which(
-    sapply(pop_houses$centroid, function(x)
-      check_pc_centroids(x), USE.NAMES = FALSE) == FALSE
+    vapply(pop_houses$centroid, function(x)
+      check_pc_centroids(x), logical(1), USE.NAMES = FALSE) == FALSE
   )
 if (length(idx) > 0) {
   preflight_failed <- TRUE
@@ -388,8 +413,8 @@ check_wp_centroids <- function(centroid) {
 
 jobs <- exogenous %>% filter(type == "jobs")
 idx <-
-  which(sapply(jobs$centroid, function(x)
-    check_wp_centroids(x), USE.NAMES = FALSE) == FALSE)
+  which(vapply(jobs$centroid, function(x)
+    check_wp_centroids(x), logical(1), USE.NAMES = FALSE) == FALSE)
 if (length(idx) > 0) {
   preflight_failed <- TRUE
   flog.error(
@@ -401,31 +426,27 @@ if (length(idx) > 0) {
 }
 
 # station and access coordinates must be six digit strings 0-9
-if (isFALSE(all(sapply(stations$stn_east, function(x)
-  (
-    grepl("^[0-9]{6}$", x)
-  ))))) {
+if (isFALSE(all(vapply(stations$stn_east, function(x)
+    grepl("^[0-9]{6}$", x), logical(1)
+)))) {
   preflight_failed <- TRUE
   flog.error("Station eastings must all be 6 character strings containing 0-9 only")
 }
-if (isFALSE(all(sapply(stations$stn_north, function(x)
-  (
-    grepl("^[0-9]{6}$", x)
-  ))))) {
+if (isFALSE(all(vapply(stations$stn_north, function(x)
+    grepl("^[0-9]{6}$", x), logical(1)
+)))) {
   preflight_failed <- TRUE
   flog.error("Station northings must all be 6 character strings containing 0-9 only")
 }
-if (isFALSE(all(sapply(stations$acc_east, function(x)
-  (
-    grepl("^[0-9]{6}$", x)
-  ))))) {
+if (isFALSE(all(vapply(stations$acc_east, function(x)
+    grepl("^[0-9]{6}$", x) , logical(1)
+)))) {
   preflight_failed <- TRUE
   flog.error("Access eastings must all be 6 character strings containing 0-9 only")
 }
-if (isFALSE(all(sapply(stations$acc_north, function(x)
-  (
-    grepl("^[0-9]{6}$", x)
-  ))))) {
+if (isFALSE(all(vapply(stations$acc_north, function(x)
+    grepl("^[0-9]{6}$", x), logical(1)
+)))) {
   preflight_failed <- TRUE
   flog.error("Access northings must all be 6 character strings containing 0-9 only")
 }
@@ -443,8 +464,8 @@ check_coords <- function(coords) {
 }
 
 idx <-
-  which(sapply(stations$location, function(x)
-    check_coords(x), USE.NAMES = FALSE) == FALSE)
+  which(vapply(stations$location, function(x)
+    check_coords(x), logical(1), USE.NAMES = FALSE) == FALSE)
 if (length(idx) > 0) {
   preflight_failed <- TRUE
   flog.error(paste0(
@@ -1108,7 +1129,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
     prwpop_after int,
     change real,
     pc_change real,
-    entsexits1718 real,
+    entsexits real,
     adj_trips real,
     trips_change real,
     catchment_before json,
@@ -1171,7 +1192,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
     "	update ",
     schema,
     ".abstraction_results a
-    set entsexits1718 = b.entsexits1718
+    set entsexits = b.entsexits
     from data.stations b
     where a.at_risk = b.crscode"
   )
@@ -1475,14 +1496,14 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
     "update ",
     schema,
     ".abstraction_results
-    set adj_trips = round(entsexits1718 + ((pc_change / 100) * entsexits1718))"
+    set adj_trips = round(entsexits + ((pc_change / 100) * entsexits))"
   )
   sdr_dbExecute(con, query)
   query <- paste0(
     "update ",
     schema,
     ".abstraction_results
-    set trips_change = adj_trips - entsexits1718"
+    set trips_change = adj_trips - entsexits"
   )
   sdr_dbExecute(con, query)
 } #end abstraction analysis
