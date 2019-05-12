@@ -46,6 +46,7 @@ disconnected network (in green) shown below:
 <p align="center">
   <img src="man/figures/disconnected_network.jpg"/>
 </p>
+
 - Full stations data created (up-to-date with latest station openings and closures).
 - Service frequency updated from latest timetable data.
 - Services and facilities updated from NRE KB.
