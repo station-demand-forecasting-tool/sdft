@@ -20,6 +20,6 @@ $$
                 || quote_literal(var_expand_geom::text) || '::geometry';
       return query select d.agg_cost
          from pgr_withpointscost(var_new_sql, node_sql, start_vn,
-            end_vn, directed) as d;
+            end_vn, directed:=false) as d;
   end;
 $$ language 'plpgsql';

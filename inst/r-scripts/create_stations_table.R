@@ -412,3 +412,57 @@ dbExecute(con, query)
 # order by area asc
 
 # shouldn't be an issue now disconnected network components have been removed.
+
+#-------------------------------------------------------------------------------
+
+## for consistency going to use locations from my original stations table. These
+## have been corrected over the years having originally come from NAPTAN.
+## stations_full copied over from NUC2 to public schema
+
+query <- paste(
+  "update data.stations a set
+  longitude = b.longitude,
+  latitude = b.latitude
+  from public.stations_full b
+  where a.crscode = b.crscode
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+
+## now populate location_geom again
+
+query <- paste(
+  "	update data.stations
+  set location_geom = ST_Transform(ST_SetSrid(ST_MakePoint(longitude::numeric, latitude::numeric),4326), 27700)
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+## now populate easting and northings again
+
+query <- paste(
+  "	update data.stations
+  set easting = round(st_x(location_geom))
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
+
+query <- paste(
+  "	update data.stations
+  set northing = round(st_y(location_geom))
+  "
+)
+query <- gsub(pattern = '\\s',
+              replacement = " ",
+              x = query)
+dbExecute(con, query)
