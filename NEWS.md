@@ -30,8 +30,6 @@ script amended appropriately.
 - Views previously used in `sdr_generate_choicesets()` replaced with materialized
 views.
 - Various indexes (incl. spatial) now created for the materialized views.
-- Reduced bounding box expansion factor for first attempt of origin:station 
-distance lookup from 50% to 20%. Appears to give speed improvement overall.
 
 ## Data issues
 

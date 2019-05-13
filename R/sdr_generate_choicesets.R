@@ -286,7 +286,7 @@ sdr_generate_choicesets <-
           i,
           "', '",
           paste(crs, sep = "", collapse = ", "),
-          "', 1000, 0.2)
+          "', 1000, 0.5)
           "
         )
         nearestx <- sdr_dbGetQuery(con, query)
