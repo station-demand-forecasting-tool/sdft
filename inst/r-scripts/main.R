@@ -39,12 +39,17 @@ flog.appender(appender.file("sdr.log"))
 # set logging level
 flog.threshold(threshold)
 
-cat(paste0(
-  "INFO [",
-  format(Sys.time()), "] ",
-  "Starting model. Logging threshold is ", threshold, "\n"
-),
-file = "sdr.log")
+cat(
+  paste0(
+    "INFO [",
+    format(Sys.time()),
+    "] ",
+    "Starting model. Logging threshold is ",
+    threshold,
+    "\n"
+  ),
+  file = "sdr.log"
+)
 
 
 # capture R errors and warnings to be logged by futile.logger
@@ -231,20 +236,16 @@ check_region <- function(region) {
 }
 
 idx <-
-  which(
-    vapply(stations$region, function(x)
-      check_region(x), logical(1), USE.NAMES = FALSE) == FALSE
-  )
+  which(vapply(stations$region, function(x)
+    check_region(x), logical(1), USE.NAMES = FALSE) == FALSE)
 
 
 if (length(idx) > 0) {
   preflight_failed <- TRUE
-  flog.error(
-    paste0(
-      "The following region(s) in station input are not valid: ",
-      paste(stations$region[idx], collapse = ", ")
-    )
-  )
+  flog.error(paste0(
+    "The following region(s) in station input are not valid: ",
+    paste(stations$region[idx], collapse = ", ")
+  ))
 }
 
 # set schema name to job_id. Check begins with a-z, then a-z or 0-9 or _ for an
@@ -263,8 +264,10 @@ if (anyDuplicated(stations$crscode) > 0) {
 }
 
 # check each row has a station name - must not be NA
-if (isFALSE(all(vapply(stations$name, function(x)
-  grepl("^[[:alnum:]]+$", x), logical(1), USE.NAMES = FALSE)))) {
+if (isFALSE(all(
+  vapply(stations$name, function(x)
+    grepl("^[[:alnum:]]+$", x), logical(1), USE.NAMES = FALSE)
+))) {
   preflight_failed <- TRUE
   flog.error("Station name must be alphanumeric string of length >= 1")
 }
@@ -273,30 +276,31 @@ if (isFALSE(all(vapply(stations$name, function(x)
 # freqgroups checks
 
 if (isTRUE(have_freqgroups)) {
+  # check frequency group format is ok
+  fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
+  # check if all pairs match the required format
+  if (isFALSE(all(
+    vapply(fg_pairs, function(x)
+      grepl("^[A-Z]{3}:[0-9]{1,}$", x), logical(1), USE.NAMES = FALSE)
+  ))) {
+    preflight_failed <- TRUE
+    flog.error("Format of frequency groups is not correct")
+  }
 
-# check frequency group format is ok
-fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
-# check if all pairs match the required format
-if (isFALSE(all(vapply(fg_pairs, function(x)
-  grepl("^[A-Z]{3}:[0-9]{1,}$", x), logical(1), USE.NAMES = FALSE)))) {
-  preflight_failed <- TRUE
-  flog.error("Format of frequency groups is not correct")
-}
-
-# check crscodes in frequency groups are all valid
-# get the unique crscodes from pairs
-fg_crs <-
-  unique(vapply(fg_pairs, function(x)
-    sub(":.*", "", x), character(1), USE.NAMES = FALSE))
-# get the index for those not valid
-idx <- which(!(fg_crs %in% crscodes$crscode))
-if (length(idx > 0)) {
-  preflight_failed <- TRUE
-  flog.error(paste(
-    "The following frequency group crscodes are not valid: ",
-    paste(fg_crs[idx], collapse = ", ")
-  ))
-}
+  # check crscodes in frequency groups are all valid
+  # get the unique crscodes from pairs
+  fg_crs <-
+    unique(vapply(fg_pairs, function(x)
+      sub(":.*", "", x), character(1), USE.NAMES = FALSE))
+  # get the index for those not valid
+  idx <- which(!(fg_crs %in% crscodes$crscode))
+  if (length(idx > 0)) {
+    preflight_failed <- TRUE
+    flog.error(paste(
+      "The following frequency group crscodes are not valid: ",
+      paste(fg_crs[idx], collapse = ", ")
+    ))
+  }
 }
 
 # check abstraction station format is correct, if not NA
@@ -351,13 +355,13 @@ if (isFALSE(isolation)) {
   }
   # Check same frequency group id is specified for every station (even if NA).
   if (isTRUE(have_freqgroups)) {
-  if (length(unique(stations$freqgrp)) > 1) {
-    preflight_failed <- TRUE
-    flog.error(
-      "When using concurrent mode the same frequency group must be specified for
+    if (length(unique(stations$freqgrp)) > 1) {
+      preflight_failed <- TRUE
+      flog.error(
+        "When using concurrent mode the same frequency group must be specified for
       every station"
-    )
-  }
+      )
+    }
   }
 }
 
@@ -366,7 +370,7 @@ if (isFALSE(isolation)) {
 # crscode, freq, freqgrp, carsp
 if (isTRUE(isolation)) {
   # if remove columns that are allowed to change
-  if (nrow(stations %>% select(-crscode,-freq,-freqgrp,-carsp) %>%
+  if (nrow(stations %>% select(-crscode, -freq, -freqgrp, -carsp) %>%
            # distinct should now only return as many rows as there are unique
            # station names
            distinct()) != length(unique(stations$name))) {
@@ -382,89 +386,86 @@ if (isTRUE(isolation)) {
 #exogenous checks
 
 if (isTRUE(have_exogenous)) {
+  # check exogenous number column is positive integer for all rows
+  if (!testIntegerish(exogenous$number, lower =  1, any.missing = FALSE)) {
+    preflight_failed <- TRUE
+    flog.error("Exogenous number values must all be positive integers")
+  }
 
-# check exogenous number column is positive integer for all rows
-if (!testIntegerish(exogenous$number, lower =  1, any.missing = FALSE)) {
-  preflight_failed <- TRUE
-  flog.error("Exogenous number values must all be positive integers")
-}
+  # check valid centroids are used for the exogenous inputs
 
-# check valid centroids are used for the exogenous inputs
+  # If type is ‘population’ or ‘housing’ the value can only be assigned to a
+  # postcode centroid.
+  check_pc_centroids <- function(centroid) {
+    query <- paste0("select '",
+                    centroid,
+                    "' IN (select postcode from data.pc_pop_2011)")
+    as.logical(sdr_dbGetQuery(con, query))
+  }
 
-# If type is ‘population’ or ‘housing’ the value can only be assigned to a
-# postcode centroid.
-check_pc_centroids <- function(centroid) {
-  query <- paste0("select '",
-                  centroid,
-                  "' IN (select postcode from data.pc_pop_2011)")
-  as.logical(sdr_dbGetQuery(con, query))
-}
-
-pop_houses <-
-  exogenous %>% filter(type == "population" | type == "houses")
-idx <-
-  which(
-    vapply(pop_houses$centroid, function(x)
-      check_pc_centroids(x), logical(1), USE.NAMES = FALSE) == FALSE
-  )
-if (length(idx) > 0) {
-  preflight_failed <- TRUE
-  flog.error(
-    paste0(
-      "The following postcode centroids in the exogenous input are not valid: ",
-      paste0(pop_houses$type[idx], ": ", pop_houses$centroid[idx], collapse = ", ")
+  pop_houses <-
+    exogenous %>% filter(type == "population" | type == "houses")
+  idx <-
+    which(
+      vapply(pop_houses$centroid, function(x)
+        check_pc_centroids(x), logical(1), USE.NAMES = FALSE) == FALSE
     )
-  )
-}
-
-# If type is ‘jobs’ the value can be assigned to either a postcode centroid or a
-# workplace centroid.
-check_wp_centroids <- function(centroid) {
-  query <- paste0(
-    "select '",
-    centroid,
-    "' IN (select wz from data.workplace2011 union select postcode from data.pc_pop_2011)"
-  )
-  as.logical(sdr_dbGetQuery(con, query))
-}
-
-jobs <- exogenous %>% filter(type == "jobs")
-idx <-
-  which(vapply(jobs$centroid, function(x)
-    check_wp_centroids(x), logical(1), USE.NAMES = FALSE) == FALSE)
-if (length(idx) > 0) {
-  preflight_failed <- TRUE
-  flog.error(
-    paste0(
-      "The following workplace centroids in the exogenous input are not valid: ",
-      paste0(jobs$type[idx], ": ", jobs$centroid[idx], collapse = ", ")
+  if (length(idx) > 0) {
+    preflight_failed <- TRUE
+    flog.error(
+      paste0(
+        "The following postcode centroids in the exogenous input are not valid: ",
+        paste0(pop_houses$type[idx], ": ", pop_houses$centroid[idx], collapse = ", ")
+      )
     )
-  )
-}
+  }
+
+  # If type is ‘jobs’ the value can be assigned to either a postcode centroid or a
+  # workplace centroid.
+  check_wp_centroids <- function(centroid) {
+    query <- paste0(
+      "select '",
+      centroid,
+      "' IN (select wz from data.workplace2011 union select postcode from data.pc_pop_2011)"
+    )
+    as.logical(sdr_dbGetQuery(con, query))
+  }
+
+  jobs <- exogenous %>% filter(type == "jobs")
+  idx <-
+    which(
+      vapply(jobs$centroid, function(x)
+        check_wp_centroids(x), logical(1), USE.NAMES = FALSE) == FALSE
+    )
+  if (length(idx) > 0) {
+    preflight_failed <- TRUE
+    flog.error(
+      paste0(
+        "The following workplace centroids in the exogenous input are not valid: ",
+        paste0(jobs$type[idx], ": ", jobs$centroid[idx], collapse = ", ")
+      )
+    )
+  }
 }
 
 # station and access coordinates must be six digit strings 0-9
 if (isFALSE(all(vapply(stations$stn_east, function(x)
-    grepl("^[0-9]{6}$", x), logical(1)
-)))) {
+  grepl("^[0-9]{6}$", x), logical(1))))) {
   preflight_failed <- TRUE
   flog.error("Station eastings must all be 6 character strings containing 0-9 only")
 }
 if (isFALSE(all(vapply(stations$stn_north, function(x)
-    grepl("^[0-9]{6}$", x), logical(1)
-)))) {
+  grepl("^[0-9]{6}$", x), logical(1))))) {
   preflight_failed <- TRUE
   flog.error("Station northings must all be 6 character strings containing 0-9 only")
 }
 if (isFALSE(all(vapply(stations$acc_east, function(x)
-    grepl("^[0-9]{6}$", x) , logical(1)
-)))) {
+  grepl("^[0-9]{6}$", x) , logical(1))))) {
   preflight_failed <- TRUE
   flog.error("Access eastings must all be 6 character strings containing 0-9 only")
 }
 if (isFALSE(all(vapply(stations$acc_north, function(x)
-    grepl("^[0-9]{6}$", x), logical(1)
-)))) {
+  grepl("^[0-9]{6}$", x), logical(1))))) {
   preflight_failed <- TRUE
   flog.error("Access northings must all be 6 character strings containing 0-9 only")
 }
@@ -482,8 +483,10 @@ check_coords <- function(coords) {
 }
 
 idx <-
-  which(vapply(stations$location, function(x)
-    check_coords(x), logical(1), USE.NAMES = FALSE) == FALSE)
+  which(
+    vapply(stations$location, function(x)
+      check_coords(x), logical(1), USE.NAMES = FALSE) == FALSE
+  )
 if (length(idx) > 0) {
   preflight_failed <- TRUE
   flog.error(paste0(
@@ -514,12 +517,14 @@ dbWriteTable(
   stations,
   append = FALSE,
   row.names = TRUE,
-  field.types = c(ticketm = "text",
-                  busint = "text",
-                  cctv = "text",
-                  terminal = "text",
-                  electric = "text",
-                  tcbound = "text")
+  field.types = c(
+    ticketm = "text",
+    busint = "text",
+    cctv = "text",
+    terminal = "text",
+    electric = "text",
+    tcbound = "text"
+  )
 )
 
 # set up id as primary key
@@ -575,9 +580,11 @@ dbWriteTable(
   append =
     FALSE,
   row.names = TRUE,
-  field.types = c(type = "text",
-                  number = "integer",
-                  centroid = "text")
+  field.types = c(
+    type = "text",
+    number = "integer",
+    centroid = "text"
+  )
 )
 
 query <- paste0("
@@ -878,20 +885,21 @@ if (isolation) {
   }
 
   for (crscode in stations$crscode) {
-
     # make frequency group adjustments if required
     if (isTRUE(have_freqgroups)) {
-    if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
-      df <-
-        data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == crscode],
-                                     "group_crs"], stringsAsFactors = FALSE)
+      if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
+        df <-
+          data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == crscode],
+                                       "group_crs"], stringsAsFactors = FALSE)
 
-      flog.info(paste0("Calling sdr_frequency_group_adjustment for: ",
-                       crscode))
+        flog.info(paste0(
+          "Calling sdr_frequency_group_adjustment for: ",
+          crscode
+        ))
 
-      sdr_frequency_group_adjustment(schema, df, tolower(crscode))
+        sdr_frequency_group_adjustment(schema, df, tolower(crscode))
 
-    } # end if freqgrp
+      } # end if freqgrp
     }
 
     # calculate the probabilities
@@ -914,12 +922,12 @@ if (isolation) {
   # all stations. The latter is checked during pre-flight, so just need to take
   # the frequency group for the first station (if it isn't NA).
   if (isTRUE(have_freqgroups)) {
-  if (!is.na(stations$freqgrp[1])) {
-    df <-
-      data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1], "group_crs"], stringsAsFactors = FALSE)
-    flog.info("Calling sdr_frequency_group_adjustment for concurrent")
-    sdr_frequency_group_adjustment(schema, df, "concurrent")
-  } # end if freqgrp
+    if (!is.na(stations$freqgrp[1])) {
+      df <-
+        data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1], "group_crs"], stringsAsFactors = FALSE)
+      flog.info("Calling sdr_frequency_group_adjustment for concurrent")
+      sdr_frequency_group_adjustment(schema, df, "concurrent")
+    } # end if freqgrp
   }
   flog.info("Calling sdr_calculate_probabilities for concurrent")
   sdr_calculate_probabilities(schema, "concurrent")
@@ -962,28 +970,28 @@ sdr_dbExecute(con, query)
 # centroids are within the proposed station's 1-minute service area
 
 if (isTRUE(have_exogenous)) {
-flog.info("Make adjustments to workplace population from exogenous_input")
-query <- paste0(
-  "
+  flog.info("Make adjustments to workplace population from exogenous_input")
+  query <- paste0(
+    "
   with tmp as (
   select a.crscode, b.centroid, b.number
   from ",
-  schema,
-  ".proposed_stations a
+    schema,
+    ".proposed_stations a
   left join ",
-  schema,
-  ".exogenous_input b
+    schema,
+    ".exogenous_input b
   on st_within(b.geom, a.service_area_1mins)
   where b.type = 'jobs'
   )
   update ",
-  schema,
-  ".proposed_stations a
+    schema,
+    ".proposed_stations a
   set workpop_1min = workpop_1min +
   (select coalesce(sum(number), 0) from tmp where a.crscode = tmp.crscode)
   "
-)
-sdr_dbExecute(con, query)
+  )
+  sdr_dbExecute(con, query)
 }
 
 # calculate probabilty weighted population for each station
@@ -1325,23 +1333,25 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
                                               tolower(proposed)))
         # make frequency group adjustments if required
         if (isTRUE(have_freqgroups)) {
-        if (!is.na(stations$freqgrp[stations$crscode == proposed])) {
-          df <-
-            data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == proposed], "group_crs"], stringsAsFactors = FALSE)
-          flog.info(
-            paste0(
-              "Calling sdr_frequency_group_adjustment, at risk station: ",
-              at_risk,
-              ", proposed station: ",
-              proposed
+          if (!is.na(stations$freqgrp[stations$crscode == proposed])) {
+            df <-
+              data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == proposed], "group_crs"], stringsAsFactors = FALSE)
+            flog.info(
+              paste0(
+                "Calling sdr_frequency_group_adjustment, at risk station: ",
+                at_risk,
+                ", proposed station: ",
+                proposed
+              )
             )
-          )
-          sdr_frequency_group_adjustment(schema,
-                                         df,
-                                         paste0(tolower(at_risk),
-                                                "_after_abs_",
-                                                tolower(proposed)))
-        } # end if freqgrp
+            sdr_frequency_group_adjustment(schema,
+                                           df,
+                                           paste0(
+                                             tolower(at_risk),
+                                             "_after_abs_",
+                                             tolower(proposed)
+                                           ))
+          } # end if freqgrp
         }
         # calculate probabilities
         flog.info(
@@ -1448,21 +1458,23 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       # concurrent treatment. This is checked during pre-flight. So we just check
       # the first row for the group name and process once (if not NA)
       if (isTRUE(have_freqgroups)) {
-      if (!is.na(stations$freqgrp[1])) {
-        df <-
-          data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1],
-                                       "group_crs"],
-                     stringsAsFactors = FALSE)
-        flog.info(
-          paste0(
-            "Calling sdr_frequency_group_adjustment, at risk station: ",
-            at_risk,
-            ", proposed stations: (concurrent)"
+        if (!is.na(stations$freqgrp[1])) {
+          df <-
+            data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1],
+                                         "group_crs"],
+                       stringsAsFactors = FALSE)
+          flog.info(
+            paste0(
+              "Calling sdr_frequency_group_adjustment, at risk station: ",
+              at_risk,
+              ", proposed stations: (concurrent)"
+            )
           )
-        )
-        sdr_frequency_group_adjustment(schema, df, paste0(tolower(at_risk),
-                                                          "_after_abs_concurrent"))
-      }
+          sdr_frequency_group_adjustment(schema,
+                                         df,
+                                         paste0(tolower(at_risk),
+                                                "_after_abs_concurrent"))
+        }
       }
       # calculate probabilities
       flog.info(
@@ -1533,12 +1545,10 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
     set adj_trips = round(entsexits + ((pc_change / 100) * entsexits))"
   )
   sdr_dbExecute(con, query)
-  query <- paste0(
-    "update ",
-    schema,
-    ".abstraction_results
-    set trips_change = adj_trips - entsexits"
-  )
+  query <- paste0("update ",
+                  schema,
+                  ".abstraction_results
+    set trips_change = adj_trips - entsexits")
   sdr_dbExecute(con, query)
 } #end abstraction analysis
 
