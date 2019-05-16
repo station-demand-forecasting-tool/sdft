@@ -163,6 +163,8 @@ freqgroups <-
     na.strings = c("")
   )
 
+have_freqgroups <- ifelse(nrow(freqgroups) > 0, TRUE, FALSE)
+
 # load stations.csv
 stations <-
   read.csv(
@@ -200,6 +202,8 @@ exogenous <-
     stringsAsFactors = FALSE,
     na.strings = c("")
   )
+
+have_exogenous <- ifelse(nrow(exogenous) > 0, TRUE, FALSE)
 
 flog.info("Input files read")
 
@@ -265,6 +269,11 @@ if (isFALSE(all(vapply(stations$name, function(x)
   flog.error("Station name must be alphanumeric string of length >= 1")
 }
 
+
+# freqgroups checks
+
+if (isTRUE(have_freqgroups)) {
+
 # check frequency group format is ok
 fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
 # check if all pairs match the required format
@@ -287,6 +296,7 @@ if (length(idx > 0)) {
     "The following frequency group crscodes are not valid: ",
     paste(fg_crs[idx], collapse = ", ")
   ))
+}
 }
 
 # check abstraction station format is correct, if not NA
@@ -328,24 +338,26 @@ if (isFALSE(testIntegerish(stations$carsp, lower = 1, any.missing = FALSE))) {
 
 # If concurrent:
 # Check station name is unique
-# Check abstraction string is same for all stations (even if NA)
-# Check same frequency group id is specified for every station (even if NA).
 if (isFALSE(isolation)) {
   if (anyDuplicated(stations$name) > 0) {
     preflight_failed <- TRUE
     flog.error("Station name must be unique for concurrent mode")
   }
+  # Check abstraction string is same for all stations (even if NA)
   if (length(unique(stations$abstract)) > 1) {
     preflight_failed <- TRUE
     flog.error("Defined abstraction stations must be identical for all stations
                in concurrent mode")
   }
+  # Check same frequency group id is specified for every station (even if NA).
+  if (isTRUE(have_freqgroups)) {
   if (length(unique(stations$freqgrp)) > 1) {
     preflight_failed <- TRUE
     flog.error(
       "When using concurrent mode the same frequency group must be specified for
       every station"
     )
+  }
   }
 }
 
@@ -365,6 +377,11 @@ if (isTRUE(isolation)) {
     )
   }
 }
+
+
+#exogenous checks
+
+if (isTRUE(have_exogenous)) {
 
 # check exogenous number column is positive integer for all rows
 if (!testIntegerish(exogenous$number, lower =  1, any.missing = FALSE)) {
@@ -423,6 +440,7 @@ if (length(idx) > 0) {
       paste0(jobs$type[idx], ": ", jobs$centroid[idx], collapse = ", ")
     )
   )
+}
 }
 
 # station and access coordinates must be six digit strings 0-9
@@ -556,7 +574,10 @@ dbWriteTable(
   exogenous,
   append =
     FALSE,
-  row.names = TRUE
+  row.names = TRUE,
+  field.types = c(type = "text",
+                  number = "integer",
+                  centroid = "text")
 )
 
 query <- paste0("
@@ -855,8 +876,11 @@ if (isolation) {
       sdr_generate_probability_table(schema, choicesets, tolower(crscode))
     }
   }
-  # make frequency group adjustments if required
+
   for (crscode in stations$crscode) {
+
+    # make frequency group adjustments if required
+    if (isTRUE(have_freqgroups)) {
     if (!is.na(stations$freqgrp[stations$crscode == crscode])) {
       df <-
         data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == crscode],
@@ -868,6 +892,7 @@ if (isolation) {
       sdr_frequency_group_adjustment(schema, df, tolower(crscode))
 
     } # end if freqgrp
+    }
 
     # calculate the probabilities
     flog.info(paste0("Calling sdr_calculate_probabilities for: ", crscode))
@@ -888,12 +913,14 @@ if (isolation) {
   # must either be no frequency group entered or the same frequency group for
   # all stations. The latter is checked during pre-flight, so just need to take
   # the frequency group for the first station (if it isn't NA).
+  if (isTRUE(have_freqgroups)) {
   if (!is.na(stations$freqgrp[1])) {
     df <-
       data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1], "group_crs"], stringsAsFactors = FALSE)
     flog.info("Calling sdr_frequency_group_adjustment for concurrent")
     sdr_frequency_group_adjustment(schema, df, "concurrent")
   } # end if freqgrp
+  }
   flog.info("Calling sdr_calculate_probabilities for concurrent")
   sdr_calculate_probabilities(schema, "concurrent")
 } # end concurrent
@@ -933,6 +960,8 @@ sdr_dbExecute(con, query)
 # adjustments for proposed workplace population from exogenous input file
 # update workplace pop in proposed_stations table if any of the exogenous
 # centroids are within the proposed station's 1-minute service area
+
+if (isTRUE(have_exogenous)) {
 flog.info("Make adjustments to workplace population from exogenous_input")
 query <- paste0(
   "
@@ -955,6 +984,7 @@ query <- paste0(
   "
 )
 sdr_dbExecute(con, query)
+}
 
 # calculate probabilty weighted population for each station
 # create column in proposed_stations table
@@ -1187,7 +1217,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
     }
   }
 
-  # populate abstraction_results table with entsexist1718 for each at-risk station
+  # populate abstraction_results table with entsexits for each at-risk station
   query <- paste0(
     "	update ",
     schema,
@@ -1294,6 +1324,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
                                               "_after_abs_",
                                               tolower(proposed)))
         # make frequency group adjustments if required
+        if (isTRUE(have_freqgroups)) {
         if (!is.na(stations$freqgrp[stations$crscode == proposed])) {
           df <-
             data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[stations$crscode == proposed], "group_crs"], stringsAsFactors = FALSE)
@@ -1311,6 +1342,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
                                                 "_after_abs_",
                                                 tolower(proposed)))
         } # end if freqgrp
+        }
         # calculate probabilities
         flog.info(
           paste0(
@@ -1415,6 +1447,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       # Must only be a single identical frequency group for all stations under
       # concurrent treatment. This is checked during pre-flight. So we just check
       # the first row for the group name and process once (if not NA)
+      if (isTRUE(have_freqgroups)) {
       if (!is.na(stations$freqgrp[1])) {
         df <-
           data.frame(fgrp = freqgroups[freqgroups$group_id == stations$freqgrp[1],
@@ -1429,6 +1462,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
         )
         sdr_frequency_group_adjustment(schema, df, paste0(tolower(at_risk),
                                                           "_after_abs_concurrent"))
+      }
       }
       # calculate probabilities
       flog.info(

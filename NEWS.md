@@ -1,3 +1,10 @@
+# stationdemandr 0.2.1
+
+## Fixes
+
+- Fixed bug with main script not able to handle empty data frames resulting from 
+import of empty exogenous.csv and freqgroups.csv input files (which are optional).
+
 # stationdemandr 0.2.0
 
 ## Fixes

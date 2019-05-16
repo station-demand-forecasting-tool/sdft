@@ -74,7 +74,7 @@ sdr_create_service_areas <-
         # nearest edge to the station. This node is found using pgr_pointtoedgenode,
         # with a maximum 1000 km tolerance to nearest edge.
 
-        # NOTE: ST_ConcaveHull can return Points, Linestrings, or Polygons so
+        # ST_ConcaveHull can return Points, Linestrings, or Polygons so
         # necessary to buffer any service area returned as a point or linestring
         # thus creating a polygon that can be written to the database table.
 
