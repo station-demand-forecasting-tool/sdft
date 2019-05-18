@@ -3,7 +3,7 @@
 
 # stationdemandr 0.2.2
 
-## FIXES
+## Fixes
 
 - Fixed issue with the BEFORE abstraction analysis. Frequency group adjustments 
 were not applied to the *before* situation - there was a single shared
