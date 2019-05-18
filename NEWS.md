@@ -1,3 +1,17 @@
+# stationdemandr 0.2.2
+
+## FIXES
+
+- Fixed issue with the BEFORE abstraction analysis. Frequency group adjustments 
+were not applied to the *before* situation - there was a single shared
+probability table for each at_risk station. This appeared to make sense when the
+decision was made. However, if one of the at-risk stations is also subject to an
+upward frequency adjustment then its weighted population will increase in the
+*after* situation (because of the higher frequency variable). This has been
+amended so that a separate probablity table is created for each 
+proposed_station:at_risk station pair (the same as for the *after* analysis) and
+frequency group adjustments are made as required.
+
 # stationdemandr 0.2.1
 
 ## Fixes
