@@ -12,6 +12,7 @@
 #' updated - either a crscode (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
 sdr_frequency_group_adjustment <- function(schema, df, tablesuffix) {
+
   # count number of stations in the frequency group
   freqgrp_no <- length(strsplit(df$fgrp, ",")[[1]])
   df <-
@@ -28,7 +29,9 @@ sdr_frequency_group_adjustment <- function(schema, df, tablesuffix) {
       convert = TRUE
     )
 
+
   for (crs in df$crs) {
+    flog.info(paste0("Making frequency group adjustment for: ", crs))
     query <- paste0(
       "
       update ", schema, ".probability_",

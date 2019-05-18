@@ -39,36 +39,48 @@
 #' @param tolerance Numeric, tolerance for ST_SimplifyPreserveTopology. Default
 #' is 0.1.
 #' @export
-sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = NULL, cutoff = 0.01, tolerance = 0.1) {
-
-  # define table and column names and where clauses
-  if (type == "proposed") {
-    update_table <- paste0(schema, ".proposed_stations")
-    set_column <- "catchment"
-    where_clause <- paste0("crscode = '", crs, "'")
-    sa_table <- paste0(schema, ".proposed_stations")
-  } else if (type == "abstraction") {
-    if (is.null(abs_crs)) {
-      set_column <- "catchment_before"
-      where_clause <- paste0("at_risk = '", crs, "'")
+sdr_create_json_catchment <-
+  function(schema,
+           type,
+           crs,
+           tablesuffix,
+           abs_crs = NULL,
+           cutoff = 0.01,
+           tolerance = 0.1) {
+    # define table and column names and where clauses
+    if (type == "proposed") {
+      update_table <- paste0(schema, ".proposed_stations")
+      set_column <- "catchment"
+      where_clause <- paste0("crscode = '", crs, "'")
+      sa_table <- paste0(schema, ".proposed_stations")
+    } else if (type == "abstraction") {
+      if (is.null(abs_crs)) {
+        set_column <- "catchment_before"
+        where_clause <- paste0("at_risk = '", crs, "'")
+      } else {
+        set_column <- "catchment_after"
+        where_clause <-
+          paste0("at_risk = '", crs, "' and proposed = '", abs_crs, "'")
+      }
+      update_table <- paste0(schema, ".abstraction_results")
+      sa_table <- "data.stations"
     } else {
-      set_column <- "catchment_after"
-      where_clause <-
-        paste0("at_risk = '", crs, "' and proposed = '", abs_crs, "'")
+      stop("type not valid")
     }
-    update_table <- paste0(schema, ".abstraction_results")
-    sa_table <- "data.stations"
-  } else {
-    stop("type not valid")
-  }
 
-  futile.logger::flog.info(paste0("Creating GeoJSON catchment, updating table: ", update_table))
-  futile.logger::flog.info(paste0("Creating GeoJSON catchment, updating column: ", set_column))
-  futile.logger::flog.info(paste0("Creating GeoJSON catchment, using 60 minute sa from table: ", sa_table))
-  futile.logger::flog.info(paste0("Creating GeoJSON catchment, where: ", where_clause))
+    futile.logger::flog.info(paste0(
+      "Creating GeoJSON catchment where ", where_clause, " in ",
+      update_table,
+      ".",
+      set_column
+    ))
 
-  query <- paste0(
-    "update ", update_table, " set ", set_column, " = (select row_to_json(fc)
+    query <- paste0(
+      "update ",
+      update_table,
+      " set ",
+      set_column,
+      " = (select row_to_json(fc)
     from (
     select
     'FeatureCollection' as \"type\",
@@ -76,7 +88,9 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
     from (
     select
     'Feature' as \"type\",
-    st_asgeojson(st_transform(st_simplifypreservetopology(b.geom, ", tolerance, "), 4326)) :: json as \"geometry\",
+    st_asgeojson(st_transform(st_simplifypreservetopology(b.geom, ",
+      tolerance,
+      "), 4326)) :: json as \"geometry\",
     (
     select json_strip_nulls(row_to_json(t))
     from (
@@ -85,18 +99,26 @@ sdr_create_json_catchment <- function(schema, type, crs, tablesuffix, abs_crs = 
     round(a.te19_prob, 2) as probability
     ) t
     ) as \"properties\"
-      from ", schema, ".probability_",
-    tablesuffix,
-    " as a
+      from ",
+      schema,
+      ".probability_",
+      tablesuffix,
+      " as a
     left join data.postcode_polygons b on a.postcode = b.postcode
     left join data.pc_pop_2011 c on a.postcode = c.postcode
     where a.crscode = '",
-    crs,
-    "' and a.te19_prob > ", cutoff, " and st_within(c.geom, (select service_area_60mins from ", sa_table, " where crscode = '",
-    crs,
-    "'))
+      crs,
+      "' and a.te19_prob > ",
+      cutoff,
+      " and st_within(c.geom,
+    (select service_area_60mins from ",
+      sa_table,
+      " where crscode = '",
+      crs,
+      "'))
     ) as f
-    ) as fc ) where ", where_clause
+    ) as fc ) where ",
+      where_clause
     )
-  sdr_dbExecute(con, query)
-}
+    sdr_dbExecute(con, query)
+  }
