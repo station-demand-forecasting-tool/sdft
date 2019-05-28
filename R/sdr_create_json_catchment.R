@@ -68,57 +68,60 @@ sdr_create_json_catchment <-
       stop("type not valid")
     }
 
-    futile.logger::flog.info(paste0(
-      "Creating GeoJSON catchment where ", where_clause, " in ",
-      update_table,
-      ".",
-      set_column
-    ))
+    futile.logger::flog.info(
+      paste0(
+        "Creating GeoJSON catchment where ",
+        where_clause,
+        " in ",
+        update_table,
+        ".",
+        set_column
+      )
+    )
 
     query <- paste0(
       "update ",
       update_table,
       " set ",
       set_column,
-      " = (select row_to_json(fc)
+      " = (		select row_to_json(fc)
     from (
-    select
+select
     'FeatureCollection' as \"type\",
     array_to_json(array_agg(f)) as \"features\"
     from (
-    select
-    'Feature' as \"type\",
-    st_asgeojson(st_transform(st_simplifypreservetopology(b.geom, ",
-      tolerance,
-      "), 4326)) :: json as \"geometry\",
-    (
-    select json_strip_nulls(row_to_json(t))
-    from (
-    select
-    a.postcode,
-    round(a.te19_prob, 2) as probability
-    ) t
-    ) as \"properties\"
-      from ",
+
+with tmp as (
+select round(a.te19_prob, 1) as probability, st_union(b.geom) as geom from ",
       schema,
       ".probability_",
       tablesuffix,
-      " as a
-    left join data.postcode_polygons b on a.postcode = b.postcode
-    left join data.pc_pop_2011 c on a.postcode = c.postcode
+      " a
+left join data.postcode_polygons b on a.postcode = b.postcode
+  left join data.pc_pop_2011 c on a.postcode = c.postcode
     where a.crscode = '",
       crs,
-      "' and a.te19_prob > ",
-      cutoff,
-      " and st_within(c.geom,
-    (select service_area_60mins from ",
+      "' and a.te19_prob > 0.01 and st_within(c.geom, (select service_area_60mins from ",
       sa_table,
       " where crscode = '",
       crs,
       "'))
-    ) as f
+group by probability
+)
+select
+    'Feature' as \"type\",
+    st_asgeojson(st_transform(st_simplifypreservetopology(a.geom, ", tolerance, "), 4326), 5) :: json as \"geometry\",
+    (
+    select json_strip_nulls(row_to_json(t))
+    from (
+    select
+    a.probability
+    ) t
+    ) as \"properties\"
+      from tmp as a
+		 ) as f
     ) as fc ) where ",
-      where_clause
+    where_clause
     )
-    sdr_dbExecute(con, query)
+sdr_dbExecute(con, query)
   }

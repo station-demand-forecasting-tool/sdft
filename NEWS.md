@@ -1,4 +1,13 @@
-# stationdemandr 0.2.2.9000
+# stationdemandr 0.2.3
+
+## Performance improvements
+
+- Modified `sdr_craete_json_catchment()` to improve catchment display performance.
+Probability is now rounded to 1 decimal places and then st_union is used to 
+dissolve the postcode polygons, grouped by probability. The GeoJSON is then
+generated. This means that any catchment will now have a maximum feature count 
+of 10. Also defined `maxdecimaldigits` for `st_asgeojson`, set to 5 rather than 
+the default of 15.
 
 
 # stationdemandr 0.2.2
