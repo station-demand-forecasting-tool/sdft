@@ -1,8 +1,16 @@
+# stationdemandr 0.2.3.9000
+
+## Fixes
+
+- added new script `start.R`. This simply calls main.R using `source()`. `start.R` can
+then be run from the terminal using rscript. If main.R is called directly using 
+rscript then `stop()` calls will not terminate the model.
+
 # stationdemandr 0.2.3
 
 ## Performance improvements
 
-- Modified `sdr_craete_json_catchment()` to improve catchment display performance.
+- Modified `sdr_create_json_catchment()` to improve catchment display performance.
 Probability is now rounded to 1 decimal places and then st_union is used to 
 dissolve the postcode polygons, grouped by probability. The GeoJSON is then
 generated. This means that any catchment will now have a maximum feature count 
