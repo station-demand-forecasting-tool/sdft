@@ -518,7 +518,7 @@ dbWriteTable(
     terminal = "text",
     electric = "text",
     tcbound = "text",
-    category = "test"
+    category = "text"
   )
 )
 
