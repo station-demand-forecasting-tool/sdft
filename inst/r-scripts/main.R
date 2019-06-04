@@ -263,7 +263,7 @@ if (anyDuplicated(stations$crscode) > 0) {
 # check each row has a station name - must not be NA
 if (isFALSE(all(
   vapply(stations$name, function(x)
-    grepl("^[[:alnum:]]+$", x), logical(1), USE.NAMES = FALSE)
+    grepl("^[a-zA-Z0-9 ]+$", x), logical(1), USE.NAMES = FALSE)
 ))) {
   preflight_failed <- TRUE
   flog.error("Station name must be alphanumeric string of length >= 1")

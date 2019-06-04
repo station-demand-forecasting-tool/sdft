@@ -10,6 +10,8 @@ rscript then `stop()` calls will not terminate the model.
 when proposed_stations table written to database. When category was 'F' type Boolean
 was assumed by default. Must be type text.
 
+- pre-flight checks - allow space in station name.
+
 # stationdemandr 0.2.3
 
 ## Performance improvements
