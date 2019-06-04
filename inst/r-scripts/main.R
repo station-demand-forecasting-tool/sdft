@@ -517,7 +517,8 @@ dbWriteTable(
     cctv = "text",
     terminal = "text",
     electric = "text",
-    tcbound = "text"
+    tcbound = "text",
+    category = "test"
   )
 )
 

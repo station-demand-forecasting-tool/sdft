@@ -6,6 +6,10 @@
 then be run from the terminal using rscript. If main.R is called directly using 
 rscript then `stop()` calls will not terminate the model.
 
+- problem if category was 'F'. Type was not specified when proposed_stations table
+written to database. When category was 'F' type Boolean was assumed by default. Must
+be type text.
+
 # stationdemandr 0.2.3
 
 ## Performance improvements
