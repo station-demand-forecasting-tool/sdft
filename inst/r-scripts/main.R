@@ -181,7 +181,8 @@ stations <-
       "cctv" = "logical",
       "terminal" = "logical",
       "electric" = "logical",
-      "tcbound" = "logical"
+      "tcbound" = "logical",
+      "category" = "character"
     ),
     stringsAsFactors = FALSE,
     na.strings = c("")
