@@ -561,7 +561,7 @@ query <- paste0(
   update ",
   schema,
   ".proposed_stations set location_geom =
-  ST_GeomFromText('POINT('||stn_east||' '||stn_north||')', 27700)
+  ST_GeomFromText('POINT('||acc_east||' '||acc_north||')', 27700)
   "
 )
 sdr_dbExecute(con, query)

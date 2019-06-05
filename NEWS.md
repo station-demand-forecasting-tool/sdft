@@ -12,6 +12,17 @@ was assumed by default. Must be type text.
 
 - pre-flight checks - allow space in station name.
 
+- the location_geom column in proposed_stations is used by the SQL function to measure
+distances from postcode centroids to the proposed station. This should therefore be generated
+from the proposed station's *access* NGR. However, this was instead being generated
+(in main.R) using the station's physical location NGR. This has been corrected.
+
+## Data Issues
+
+- In the table data.hhsize there were trailing spaces in some of the area_code values.
+This requires correcting by running:
+`update data.hhsize set area_code = trim(area_code)`
+
 # stationdemandr 0.2.3
 
 ## Performance improvements
