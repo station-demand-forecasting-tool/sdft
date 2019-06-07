@@ -17,6 +17,15 @@ distances from postcode centroids to the proposed station. This should therefore
 from the proposed station's *access* NGR. However, this was instead being generated
 (in main.R) using the station's physical location NGR. This has been corrected.
 
+- bug in `sd_generate_choicesets`. When  `sdr_crs_pc_nearest_stationswithpoints()` is called
+`crs` is passed as the third argument of the function. This parameter is used in
+`sdr_crs_pc_nearest_stationswithpoints()` to avoid
+expensive distance lookups when the proposed or at_risk station is not in the set of stations
+to be measured. This is fine for generating  a choiceset for a proposed station, 
+or for a *before* abstraction analysis choiceset. However, this is the wrong parameter
+if an *after* abstraction analysis is being carried out as in that case `crs` contains
+the proposed station CRS not the at-risk station. This has been corrected to use pc_crs instead.
+
 ## Data Issues
 
 - In the table data.hhsize there were trailing spaces in some of the area_code values.

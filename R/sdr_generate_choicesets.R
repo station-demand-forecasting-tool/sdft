@@ -285,13 +285,13 @@ sdr_generate_choicesets <-
           "', '",
           i,
           "', '",
-          paste(crs, sep = "", collapse = ", "),
+          paste(pc_crs, sep = "", collapse = ", "),
           "', 1000, 0.5)
           "
         )
         nearestx <- sdr_dbGetQuery(con, query)
         # sdr_crs_pc_nearest_stationswithpoints() will return null if no
-        # station in crs is present in the nearest 10 (or more) stations
+        # station in pc_crs is present in the nearest 10 (or more) stations
         # this avoids unnecessary distance lookups. Therefore, need to check
         # rows returned are > 0 before
         if (nrow(nearestx) > 0) {
