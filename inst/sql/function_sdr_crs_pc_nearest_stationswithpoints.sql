@@ -31,6 +31,12 @@ select
 		when
 			( select count ( * ) from %1$s.stations where st_within($1, service_area_1km) ) >= 10 then
 				$$service_area_1km$$
+				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_2km) ) >= 10 then
+				$$service_area_2km$$
+				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_3km) ) >= 10 then
+				$$service_area_3km$$
+				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_4km) ) >= 10 then
+				$$service_area_4km$$
 				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_5km) ) >= 10 then
 				$$service_area_5km$$
 				when ( select count ( * ) from %1$s.stations where st_within($1, service_area_10km) ) >= 10 then
