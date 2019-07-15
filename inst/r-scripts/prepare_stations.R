@@ -108,8 +108,8 @@ sdr_create_service_areas(
   schema = "data",
   df = stations,
   identifier = "crscode",
-  table = "station",
-  sa = c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000),
+  table = "stations",
+  sa = c(1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000),
   cost = "len"
 )
 
@@ -130,6 +130,9 @@ sdr_create_service_areas(
 # create spatial indexes for the service areas
 
 sa_names <- c("service_area_1km",
+              "service_area_2km",
+              "service_area_3km",
+              "service_area_4km",
               "service_area_5km",
               "service_area_10km",
               "service_area_20km",

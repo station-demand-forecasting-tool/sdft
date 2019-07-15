@@ -67,7 +67,7 @@ options(
 
 # During testing set this variable to TRUE. This produces fake 60-minute
 # proposed station service areas which are actually only 5-minute service areas.
-testing <- TRUE
+testing <- FALSE
 flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 
 # Set up a database connection.
@@ -715,7 +715,7 @@ sdr_create_service_areas(
   df = unique_stations,
   identifier = "name",
   table = "station_sas",
-  sa = c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000),
+  sa = c(1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000),
   cost = "len"
 )
 
@@ -777,7 +777,7 @@ if (testing) {
 # Add the required service area columns to proposed_stations table and update
 # the geometries from stations_sas.
 # distance-based
-for (i in c(1000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000)) {
+for (i in c(1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000)) {
   column_name <- paste0("service_area_", i / 1000, "km")
   query <-
     paste0(
