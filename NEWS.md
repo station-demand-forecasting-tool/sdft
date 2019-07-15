@@ -26,11 +26,16 @@ or for a *before* abstraction analysis choiceset. However, this is the wrong par
 if an *after* abstraction analysis is being carried out as in that case `crs` contains
 the proposed station CRS not the at-risk station. This has been corrected to use pc_crs instead.
 
+- expanded station service areas to include 2, 3 and 4km. Should improve performance of choiceset
+generation process.
+
 ## Data Issues
 
 - In the table data.hhsize there were trailing spaces in some of the area_code values.
 This requires correcting by running:
 `update data.hhsize set area_code = trim(area_code)`
+
+- additional service areas added to data.stations table
 
 # stationdemandr 0.2.3
 
