@@ -35,7 +35,11 @@ generation process.
 This requires correcting by running:
 `update data.hhsize set area_code = trim(area_code)`
 
-- additional service areas added to data.stations table
+- additional service areas (2, 3, and 4km) added to data.stations table
+
+- data.stations table updated with car parking spaces for Great Northern stations. 
+NRE shows these stations as having a car park but no spaces information. These car
+parks are run by Saba and details of spaces was obtained from [https://www.sabaparking.co.uk/great-northern-railway](https://www.sabaparking.co.uk/great-northern-railway).
 
 # stationdemandr 0.2.3
 
