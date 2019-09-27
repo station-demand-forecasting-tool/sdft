@@ -1,5 +1,11 @@
 # stationdemandr 0.2.3.9000
 
+## Model changes
+
+- switched to using the calibrated trip-end model with jobs within 2-minute drive time. 
+Equates to 1 mile at 30mph (so approx 20-minute walk distance). More likely to 
+capture nearby workplace zones where the centroid is not near a road edge.
+
 ## Fixes
 
 - added new script `start.R`. This simply calls main.R using `source()`. `start.R` can
@@ -10,7 +16,9 @@ rscript then `stop()` calls will not terminate the model.
 when proposed_stations table written to database. When category was 'F' type Boolean
 was assumed by default. Must be type text.
 
-- pre-flight checks - allow space in station name.
+- pre-flight checks
+  * allow space in station name
+  * allow car park spaces to be zero
 
 - the location_geom column in proposed_stations is used by the SQL function to measure
 distances from postcode centroids to the proposed station. This should therefore be generated
@@ -40,6 +48,28 @@ This requires correcting by running:
 - data.stations table updated with car parking spaces for Great Northern stations. 
 NRE shows these stations as having a car park but no spaces information. These car
 parks are run by Saba and details of spaces was obtained from [https://www.sabaparking.co.uk/great-northern-railway](https://www.sabaparking.co.uk/great-northern-railway).
+
+- data.stations table updated with date station opened (where recorded).
+
+- data.stations table updated to amend car parking spaces:
+  - Ilkeston NRE states a car park but gives no spaces. Appears that there are 150 spaces,
+    in two car parks either side of the tracks. Source: https://anonw.com/tag/ilkeston-station/.
+    Photo of one of the car parks suggests 150 is probably about right:[photo](https://anonw.files.wordpress.com/2017/04/dscn0019.jpg?w=1200&h=)
+  - Kenilworth - NRE states a car park but gives no spaces. Managed by Saba. Their website states 71 spaces. See: https://www.sabaparking.co.uk/car-park/kenilworth-station-car-park
+  - Pye Corner, Newport - NRE states car par but doesn't give spaces. According to BBC article there are 70 spaces: https://www.bbc.co.uk/news/uk-wales-south-east-wales-22550481. Google Maps satellite view indicate  60-65.
+  
+- Bus services. The following stations change from NA to TRUE:
+  * Kirstall Forge
+  * Lea Bridge
+  * Bermuda Park
+  * Oxford Parkway  
+  * Apperley Bridge
+  * Pye Corner
+  
+- Bus services. The following stations change from NA to FALSE:
+  * James Cook University Hospital
+  
+  
 
 # stationdemandr 0.2.3
 
