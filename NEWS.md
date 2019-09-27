@@ -4,7 +4,7 @@
 
 - switched to using the calibrated trip-end model with jobs within 2-minute drive time. 
 Equates to 1 mile at 30mph (so approx 20-minute walk distance). More likely to 
-capture nearby workplace zones where the centroid is not near a road edge.
+capture nearby workplace zones where the centroid is not near a road edge. (#10)
 
 ## Fixes
 
