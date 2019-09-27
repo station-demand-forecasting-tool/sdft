@@ -1,4 +1,4 @@
-# stationdemandr 0.2.3.9000
+# stationdemandr 0.2.4
 
 ## Model changes
 
