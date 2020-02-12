@@ -125,6 +125,11 @@ sdr_generate_choicesets <-
 
     futile.logger::flog.info("Creating virtual nodes table")
 
+    ## Line 159 amended to allow this code to be used in backcasting
+    ## Existing station will already have a node in openroads.centroidnodes
+    ## This code creates a node also for proposed stations so we end up
+    ## with two nodes when backcasting and due to a left join in the SQL function
+    ## to this table we end up with two entries for the proposed station.
     query <- paste0(
       "create materialized view ",
       schema,
@@ -151,7 +156,7 @@ sdr_generate_choicesets <-
       *
       from
       openroads.centroidnodes where
-      type = 'station' or
+      (type = 'station' and reference not in (", paste("'", pc_crs, "'", sep = "", collapse = ", "), ")) or
       reference in (
       with sa as (
       select st_union(geom) as geom from (
@@ -201,7 +206,7 @@ sdr_generate_choicesets <-
       "Creating stations view for existing stations and: ",
       paste0(crs, collapse = ", ")
     ))
-
+    
     query <- paste0(
       "
       create materialized view ",

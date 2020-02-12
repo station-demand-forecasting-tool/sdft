@@ -86,6 +86,39 @@ if (class(checkdb) == "try-error") {
   stop("Database connection has not been established")
 }
 
+### TEMP CHANGES FOR BACKCASTING ###
+
+### CHANGE DATE
+
+### NOTE ALSO AMENDMENT TO sd_generate_choicesets
+
+# rename table and name stations_complete
+
+#query <- paste0("
+#                alter table data.stations rename to stations_complete
+#                ")
+#sdr_dbExecute(con, query)
+
+ query <- paste0("
+                 drop table if exists data.stations cascade
+                 ")
+ sdr_dbExecute(con, query)
+ 
+ # query <- paste0("
+ #                 create table data.stations as
+ #                select * from data.stations_complete where (dateopened is null or dateopened < '2019/03/31';
+ #                 ")
+ # sdr_dbExecute(con, query)
+ 
+ query <- paste0("
+                 create table data.stations as
+                select * from data.stations_complete;
+                 ")
+ sdr_dbExecute(con, query)
+
+### END TEMP CHANGES FOR BACKCASTING ###
+
+
 # Set up parallel processing
 # This is currently used in the sdr_create_service_areas() and
 # sdr_generate_choicesets() functions, in a foreach loop.
@@ -720,14 +753,14 @@ sdr_create_service_areas(
   cost = "len"
 )
 
-# Create 2 minute service area - used to identify number of jobs within 2 minute
+# Create 1 minute service area - used to identify number of jobs within 2 minute
 # of station
 sdr_create_service_areas(
   schema = schema,
   df = unique_stations,
   identifier = "name",
   table = "station_sas",
-  sa = c(2),
+  sa = c(1),
   cost = "time"
 )
 
@@ -805,7 +838,7 @@ for (i in c(1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 60000, 800
 }
 
 # time-based
-for (i in c(2, 60)) {
+for (i in c(1, 60)) {
   column_name <- paste0("service_area_", i, "mins")
   query <-
     paste0(
@@ -910,12 +943,12 @@ if (isolation) {
 
 # Trip end model----------------------------------------------------------------
 
-# create and populate 2-minute workplace population column in proposed_stations
+# create and populate 1-minute workplace population column in proposed_stations
 query <- paste0("
                 alter table ",
                 schema,
                 ".proposed_stations
-                add column workpop_2min int8
+                add column workpop_1min int8
                 ")
 sdr_dbExecute(con, query)
 
@@ -927,12 +960,12 @@ query <- paste0(
   schema,
   ".proposed_stations a
   left join data.workplace2011 b
-  on st_within(b.geom, a.service_area_2mins)
+  on st_within(b.geom, a.service_area_1mins)
   group by crscode)
   update ",
   schema,
   ".proposed_stations a
-  set workpop_2min =
+  set workpop_1min =
   (select sum from tmp where tmp.crscode = a.crscode)
   "
 )
@@ -940,7 +973,7 @@ sdr_dbExecute(con, query)
 
 # adjustments for proposed workplace population from exogenous input file
 # update workplace pop in proposed_stations table if any of the exogenous
-# centroids are within the proposed station's 2-minute service area
+# centroids are within the proposed station's 1-minute service area
 
 if (isTRUE(have_exogenous)) {
   flog.info("Making adjustments to workplace population from exogenous_input")
@@ -954,13 +987,13 @@ if (isTRUE(have_exogenous)) {
   left join ",
     schema,
     ".exogenous_input b
-  on st_within(b.geom, a.service_area_2mins)
+  on st_within(b.geom, a.service_area_1mins)
   where b.type = 'jobs'
   )
   update ",
     schema,
     ".proposed_stations a
-  set workpop_2min = workpop_2min +
+  set workpop_1min = workpop_1min +
   (select coalesce(sum(number), 0) from tmp where a.crscode = tmp.crscode)
   "
   )
@@ -1035,33 +1068,28 @@ query <- paste0(
 )
 sdr_dbExecute(con, query)
 
-# version with altered application of decay function
-# and 2 minute work population (1 mile)
+
 # Coefficients:
-#   Estimate Std. Error t value Pr(>|t|)
-# (Intercept)                  3.515281   0.094543  37.182  < 2e-16 ***
-#   log(te19cmb_15212_adj)       0.366328   0.018018  20.331  < 2e-16 ***
-#   log(dailyfrequency_2013_all) 1.124473   0.027686  40.615  < 2e-16 ***
-#   log1p(work_pop_2m)           0.056579   0.007915   7.149 1.27e-12 ***
-#   log1p(carspaces)             0.126181   0.009195  13.723  < 2e-16 ***
-#   electric_dummy               0.236574   0.041156   5.748 1.06e-08 ***
-#   tcard_bound_dummy            0.299954   0.091444   3.280  0.00106 **
-#   TerminusDummy                0.792108   0.083448   9.492  < 2e-16 ***
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)                  3.672122   0.095382  38.499  < 2e-16 ***
+#   log(te19cmb_15212)           0.366469   0.018194  20.142  < 2e-16 ***
+#   log(dailyfrequency_2013_all) 1.139167   0.027473  41.465  < 2e-16 ***
+#   log1p(work_pop_1m)           0.053005   0.006840   7.749 1.54e-14 ***
+#   log1p(carspaces)             0.129301   0.009147  14.136  < 2e-16 ***
+#   electric_dummy               0.243414   0.041037   5.932 3.59e-09 ***
+#   tcard_bound_dummy            0.299968   0.091295   3.286  0.00104 ** 
+#   TerminusDummy                0.781959   0.083414   9.374  < 2e-16 ***
 #   ---
 #   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
-#
-# Residual standard error: 0.6919 on 1784 degrees of freedom
-# Multiple R-squared:  0.8502,	Adjusted R-squared:  0.8496
-# F-statistic:  1446 on 7 and 1784 DF,  p-value: < 2.2e-16
-#
-var_intercept <- 3.515281
-var_population <- 0.366328
-var_frequency <- 1.124473
-var_workpop <- 0.056579
-var_carspaces <- 0.126181
-var_electric <- 0.236574
-var_tcardbound <- 0.299954
-var_terminus <- 0.792108
+
+var_intercept <- 3.672122
+var_population <- 0.366469
+var_frequency <- 1.139167
+var_workpop <- 0.053005
+var_carspaces <- 0.129301
+var_electric <- 0.243414
+var_tcardbound <- 0.299968
+var_terminus <- 0.781959
 
 # base forecast
 query <- paste0(
@@ -1073,7 +1101,7 @@ query <- paste0(
   var_population,
   ") + (ln(freq) * ",
   var_frequency,
-  ") + (ln(workpop_2min + 1) * ",
+  ") + (ln(workpop_1min + 1) * ",
   var_workpop,
   ") + (ln(carsp + 1) * ",
   var_carspaces,

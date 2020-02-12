@@ -53,7 +53,7 @@ if (tablesuffix == "concurrent") {
       "' and a.distance <= 750 and st_within(b.geom, c.service_area_60mins)
       ), w_pop as (
       select
-      sum(a.te19_prob * b.population * power((((a.distance - 750) / 1000) +1), -1.5212)) from ", schema, ".probability_",
+      sum(a.te19_prob * b.population * power(((a.distance / 1000) +1), -1.5212)) from ", schema, ".probability_",
       tolower(tablesuffix),
       " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
@@ -64,7 +64,7 @@ if (tablesuffix == "concurrent") {
       ), adj_pop as (
       select sum (
       case when b.distance <= 750 then b.te19_prob * a.population
-      when b.distance > 750 then b.te19_prob * a.population * power((((b.distance - 750) / 1000) +1), -1.5212)
+      when b.distance > 750 then b.te19_prob * a.population * power(((b.distance / 1000) +1), -1.5212)
       end)
       from ", schema, ".exogenous_input as a
       left join ", schema, ".probability_",
@@ -97,7 +97,7 @@ if (tablesuffix == "concurrent") {
       "' and a.distance <= 750
       ), w_pop as (
       select
-      sum(a.te19_prob * b.population * power((((a.distance - 750) / 1000) +1), -1.5212)) from ", schema, ".probability_",
+      sum(a.te19_prob * b.population * power(((a.distance / 1000) +1), -1.5212)) from ", schema, ".probability_",
       tolower(tablesuffix),
       " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
@@ -107,7 +107,7 @@ if (tablesuffix == "concurrent") {
       ), adj_pop as (
       select sum (
       case when b.distance <=750 then b.te19_prob * a.population
-      when b.distance > 750 then b.te19_prob * a.population * power((((b.distance - 750) / 1000) +1), -1.5212)
+      when b.distance > 750 then b.te19_prob * a.population * power(((b.distance / 1000) +1), -1.5212)
       end)
       from ", schema, ".exogenous_input as a
       left join ", schema, ".probability_",
