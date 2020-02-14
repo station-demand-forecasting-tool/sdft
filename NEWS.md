@@ -1,5 +1,13 @@
 # stationdemandr 0.2.4.9000
 
+## Data Issues
+
+
+- data.stations table updated to amend car parking spaces:
+  - Apperley Bridge: NRE states 98 spaces. However, at: https://www.wymetro.com/corporate/news/projects/apperley-bridge-new-rail-station/ from West Yorkshire Combined Authority, clearly states that the station opened with 297 spaces. Also confirmed, here: https://www.westyorks-ca.gov.uk/projects/west-yorkshire-plus-transport-fund/rail-park-and-ride-phase-1-apperley-bridge/
+  - Fishguard and Goodwick. Originally appears to have had 23 spaces (See: http://fishguardtrains.info/?p=381.) Although it does appear to have recently been expanded but no information on current number of spaces. Unclear on Google Earth the exact number.  
+  
+
 # stationdemandr 0.2.4
 
 ## Model changes
@@ -61,7 +69,7 @@ parks are run by Saba and details of spaces was obtained from [https://www.sabap
   - Pye Corner, Newport - NRE states car par but doesn't give spaces. According to BBC article there are 70 spaces: https://www.bbc.co.uk/news/uk-wales-south-east-wales-22550481. Google Maps satellite view indicate  60-65.
   
 - Bus services. The following stations change from NA to TRUE:
-  * Kirstall Forge
+  * Kirkstall Forge
   * Lea Bridge
   * Bermuda Park
   * Oxford Parkway  
