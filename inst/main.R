@@ -17,7 +17,7 @@ library(checkmate)
 
 # main file path
 path <-
-  file.path("inst", "example_input", fsep = .Platform$file.sep)
+  file.path("inst", "input", fsep = .Platform$file.sep)
 
 # set up logging
 

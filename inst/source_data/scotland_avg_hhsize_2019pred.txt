@@ -1,5 +1,0 @@
-Source a CSV download from
-
-https://statistics.gov.scot/slice?dataset=http%3A%2F%2Fstatistics.gov.scot%2Fdata%2Fhousehold-projections-of-average-household-size
-
-These are 2016 based predictions

@@ -1,10 +1,7 @@
 # stationdemandr 0.2.4.9000
-<!---
-- should frequency group adjustment be made in the before catchment in the abstraction analysis??? Maybe it's ok to include it so isolating just the effect of the new stations?
--->
+
 
 ## Data Issues
-
 
 - data.stations table updated to amend car parking spaces:
   - Apperley Bridge: NRE states 98 spaces. However, at: https://www.wymetro.com/corporate/news/projects/apperley-bridge-new-rail-station/ from West Yorkshire Combined Authority, clearly states that the station opened with 297 spaces. Also confirmed, here: https://www.westyorks-ca.gov.uk/projects/west-yorkshire-plus-transport-fund/rail-park-and-ride-phase-1-apperley-bridge/

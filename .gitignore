@@ -30,6 +30,3 @@ rsconnect/
 sdr.log
 sdr_full.log
 sa.log
-# inst files
-manual_test
-gtfs
