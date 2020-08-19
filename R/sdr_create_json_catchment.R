@@ -47,6 +47,9 @@ sdr_create_json_catchment <-
            abs_crs = NULL,
            cutoff = 0.01,
            tolerance = 0.1) {
+
+    con <- NULL
+
     # define table and column names and where clauses
     if (type == "proposed") {
       update_table <- paste0(schema, ".proposed_stations")

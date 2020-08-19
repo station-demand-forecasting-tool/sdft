@@ -7,7 +7,7 @@ Description: This model is intended to forecast demand for new local railway sta
   It has been calibrated on all Category E and F stations in mainland GB and incorporates
   a station choice component where the probability of a station being chosen is estimated at
   the unit postcode level and used to weight the population variable in a trip end model.
-License: file LICENCE
+License: file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports:

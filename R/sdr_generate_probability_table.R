@@ -12,7 +12,11 @@
 #' @export
 sdr_generate_probability_table <- function(schema, df, tablesuffix) {
 
-  flog.info(paste0("Creating probability table: ", schema, ".probability_",
+
+  con <- NULL
+  Id <- NULL
+
+  futile.logger::flog.info(paste0("Creating probability table: ", schema, ".probability_",
                    tablesuffix))
 
   query <- paste0(

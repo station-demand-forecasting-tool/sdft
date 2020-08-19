@@ -66,6 +66,18 @@ sdr_generate_choicesets <-
            abs_crs = NULL) {
     # Set which station the set of postcode choicesets is required for
     # This will be the content of crs, or abs_crs if it is specified.
+
+    i <- NULL
+    distance <- NULL
+    distance_rank <- NULL
+    postcode <- NULL
+    crscode <- NULL
+    n <- NULL
+    number <- NULL
+    con <- NULL
+    Id <- NULL
+
+
     if (is.null(abs_crs)) {
       pc_crs = crs
     } else {

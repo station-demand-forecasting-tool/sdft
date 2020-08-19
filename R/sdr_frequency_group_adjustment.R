@@ -13,6 +13,9 @@
 #' @export
 sdr_frequency_group_adjustment <- function(schema, df, tablesuffix) {
 
+  fgrp <- NULL
+  con <- NULL
+
   # count number of stations in the frequency group
   freqgrp_no <- length(strsplit(df$fgrp, ",")[[1]])
   df <-
@@ -31,7 +34,7 @@ sdr_frequency_group_adjustment <- function(schema, df, tablesuffix) {
 
 
   for (crs in df$crs) {
-    flog.info(paste0("Making frequency group adjustment for: ", crs))
+    futile.logger::flog.info(paste0("Making frequency group adjustment for: ", crs))
     query <- paste0(
       "
       update ", schema, ".probability_",

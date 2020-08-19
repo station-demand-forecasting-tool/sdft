@@ -11,6 +11,9 @@
 
 sdr_calculate_probabilities <- function(schema, tablesuffix) {
 
+  con <- NULL
+
+
   # --------+--------------------------------------------------------------------
   #         |                  Standard            Prob.      95% Confidence
   # CHOICE  |  Coefficient       Error       z    |z|>Z*         Interval

@@ -1,1 +1,1 @@
-source ("inst/r-scripts/main.R")
+source ("main.R")
