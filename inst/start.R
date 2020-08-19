@@ -1,1 +1,1 @@
-source ("main.R")
+source ("inst/main.R")
