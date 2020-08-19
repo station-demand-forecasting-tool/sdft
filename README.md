@@ -1,6 +1,6 @@
 # Station Demand Forecasting Tool
 
-This is the R package for the Station Demand Forecasting Tool (SDFT).
+This is the R package for the Station Demand Forecasting Tool.
 
 ## About the tool
 
