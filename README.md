@@ -1,4 +1,4 @@
-# station-demand-model
+# Station Demand Forecasting Tool
 
 This is the R package for the Station Demand Forecasting Tool (SDFT).
 
