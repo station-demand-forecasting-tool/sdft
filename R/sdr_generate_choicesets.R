@@ -64,9 +64,8 @@ sdr_generate_choicesets <-
            crs,
            existing = FALSE ,
            abs_crs = NULL) {
-    # Set which station the set of postcode choicesets is required for
-    # This will be the content of crs, or abs_crs if it is specified.
 
+    # undefined global variables/functions
     i <- NULL
     distance <- NULL
     distance_rank <- NULL
@@ -74,10 +73,9 @@ sdr_generate_choicesets <-
     crscode <- NULL
     n <- NULL
     number <- NULL
-    con <- NULL
-    Id <- NULL
 
-
+    # Set which station the set of postcode choicesets is required for
+    # This will be the content of crs, or abs_crs if it is specified.
     if (is.null(abs_crs)) {
       pc_crs = crs
     } else {
@@ -291,6 +289,7 @@ sdr_generate_choicesets <-
         " postcodes"
       )
     )
+
     df <-
       foreach::foreach(
         i = postcodes$postcode,

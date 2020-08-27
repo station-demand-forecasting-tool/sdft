@@ -18,5 +18,6 @@ Imports:
     magrittr,
     futile.logger,
     stringr,
-    readr
-RoxygenNote: 6.1.1
+    readr,
+    DBI
+RoxygenNote: 7.1.1

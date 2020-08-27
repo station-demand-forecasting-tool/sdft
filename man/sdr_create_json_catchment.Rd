@@ -4,8 +4,15 @@
 \alias{sdr_create_json_catchment}
 \title{Creates a GeoJSON probabilistic catchment for a station}
 \usage{
-sdr_create_json_catchment(schema, type, crs, tablesuffix, abs_crs = NULL,
-  cutoff = 0.01, tolerance = 0.1)
+sdr_create_json_catchment(
+  schema,
+  type,
+  crs,
+  tablesuffix,
+  abs_crs = NULL,
+  cutoff = 0.01,
+  tolerance = 0.1
+)
 }
 \arguments{
 \item{schema}{Character, the database schema name.}

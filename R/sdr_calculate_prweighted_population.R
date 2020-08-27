@@ -38,8 +38,6 @@
 #' @export
 sdr_calculate_prweighted_population <- function(schema, crs, tablesuffix) {
 
-  con <- NULL
-
 if (tablesuffix == "concurrent") {
   futile.logger::flog.info(paste0("Getting probability weighted population for: ", crs, ", from: probability_", tolower(tablesuffix)))
   query <- paste0(

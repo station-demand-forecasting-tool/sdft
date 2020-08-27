@@ -31,8 +31,6 @@ sdr_create_service_areas <-
            cost = "len",
            target = 0.9) {
 
-    con <- NULL
-    threshold <- NULL
     j <- NULL
 
     # set number of records

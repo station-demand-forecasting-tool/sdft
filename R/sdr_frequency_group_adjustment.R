@@ -13,8 +13,9 @@
 #' @export
 sdr_frequency_group_adjustment <- function(schema, df, tablesuffix) {
 
+  # undefined global variables/functions
   fgrp <- NULL
-  con <- NULL
+
 
   # count number of stations in the frequency group
   freqgrp_no <- length(strsplit(df$fgrp, ",")[[1]])

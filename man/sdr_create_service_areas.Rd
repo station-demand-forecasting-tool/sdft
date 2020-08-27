@@ -4,8 +4,16 @@
 \alias{sdr_create_service_areas}
 \title{Creates a distance or time based network service area around stations}
 \usage{
-sdr_create_service_areas(schema, df, identifier, sa, table,
-  columns = TRUE, cost = "len", target = 0.9)
+sdr_create_service_areas(
+  schema,
+  df,
+  identifier,
+  sa,
+  table,
+  columns = TRUE,
+  cost = "len",
+  target = 0.9
+)
 }
 \arguments{
 \item{schema}{Character, the database schema name.}

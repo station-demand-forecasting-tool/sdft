@@ -9,12 +9,10 @@
 #' @param df A dataframe containing the choicesets.
 #' @param tablesuffix Character, the suffix of the probability table - either
 #' crscode (isolation) or 'concurrent' (concurrent) is expected.
+#' @importFrom DBI Id
 #' @export
 sdr_generate_probability_table <- function(schema, df, tablesuffix) {
 
-
-  con <- NULL
-  Id <- NULL
 
   futile.logger::flog.info(paste0("Creating probability table: ", schema, ".probability_",
                    tablesuffix))
