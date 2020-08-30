@@ -7,6 +7,7 @@
 sdr_create_json_catchment(
   schema,
   type,
+  pcpoly = FALSE,
   crs,
   tablesuffix,
   abs_crs = NULL,
@@ -20,6 +21,10 @@ sdr_create_json_catchment(
 \item{type}{Character, must be either "proposed" or "abstraction". Indicates
 whether this catchment is required for a proposed station or as part of an
 abstraction analysis. See details.}
+
+\item{pcpoly}{Logical. If TRUE the postcode polygon dataset is
+available and will be used for the catchment. If FALSE, the catchment will
+just consist of the postcode centroids.  Default is FALSE.}
 
 \item{crs}{Character, the crscode of the station the catchment is for.}
 
