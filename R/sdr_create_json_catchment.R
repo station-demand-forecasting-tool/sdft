@@ -25,6 +25,9 @@
 #' @param type Character, must be either "proposed" or "abstraction". Indicates
 #' whether this catchment is required for a proposed station or as part of an
 #' abstraction analysis. See details.
+#' @param pcpoly Logical. If TRUE the postcode polygon dataset is
+#' available and will be used for the catchment. If FALSE, the catchment will
+#' just consist of the postcode centroids.  Default is FALSE.
 #' @param crs Character, the crscode of the station the catchment is for.
 #' @param tablesuffix Character, suffix of the probability table (i.e. the part
 #' after "schema.probability_")
@@ -42,6 +45,7 @@
 sdr_create_json_catchment <-
   function(schema,
            type,
+           pcpoly = FALSE,
            crs,
            tablesuffix,
            abs_crs = NULL,
@@ -79,6 +83,8 @@ sdr_create_json_catchment <-
         set_column
       )
     )
+
+    if (isTRUE(pcpoly)) {
 
     query <- paste0(
       "update ",
@@ -124,5 +130,52 @@ select
     ) as fc ) where ",
     where_clause
     )
+    } else {
+      query <- paste0(
+        "update ",
+        update_table,
+        " set ",
+        set_column,
+        " = (		select row_to_json(fc)
+    from (
+select
+    'FeatureCollection' as \"type\",
+    array_to_json(array_agg(f)) as \"features\"
+    from (
+
+with tmp as (
+select round(a.te19_prob, 1) as probability, st_union(b.geom) as geom from ",
+        schema,
+        ".probability_",
+        tablesuffix,
+        " a
+left join data.pc_pop_2011 b on a.postcode = b.postcode
+    where a.crscode = '",
+        crs,
+        "' and a.te19_prob > 0.01 and st_within(b.geom, (select service_area_60mins from ",
+        sa_table,
+        " where crscode = '",
+        crs,
+        "'))
+group by probability
+)
+select
+    'Feature' as \"type\",
+    st_asgeojson(st_transform(st_simplifypreservetopology(a.geom, ", tolerance, "), 4326), 5) :: json as \"geometry\",
+    (
+    select json_strip_nulls(row_to_json(t))
+    from (
+    select
+    a.probability
+    ) t
+    ) as \"properties\"
+      from tmp as a
+		 ) as f
+    ) as fc ) where ",
+      where_clause
+      )
+}
+
+
 sdr_dbExecute(con, query)
   }
