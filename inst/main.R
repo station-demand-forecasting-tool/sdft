@@ -13,13 +13,105 @@ library(DBI)
 library(futile.logger)
 library(checkmate)
 
-# some configuration settings
-
 # main file path
 path <-
   file.path("inst", "input", fsep = .Platform$file.sep)
 
-# set up logging
+# Configuration----------------------------------------------------------------
+
+# Check config file exists
+
+assert_file_exists(file.path(path, "config.csv", fsep = .Platform$file.sep),
+                   access = "r")
+
+# Read config file
+config <-
+  read.csv(
+    file = file.path(path, "config.csv", fsep = .Platform$file.sep),
+    sep = ";",
+    colClasses = c(
+      "job_id" = "character",
+      "method" = "character",
+      "testing" = "logical",
+      "loglevel" = "character",
+      "cores" = "integer"
+    ),
+    stringsAsFactors = FALSE,
+    na.strings = c("")
+  )
+
+# Check config file
+
+config.coll <- makeAssertCollection()
+
+# Check for valid job_id.
+# Check begins with a-z, then a-z or 0-9 or _ for an additional 19 matches
+# up to max 20 characters. Valid postgreSQL schema format.
+if (isFALSE(assertTRUE(
+  grepl("^[a-z][a-z0-9_]{1,19}$", config$job_id, ignore.case = FALSE),
+  na.ok = FALSE,
+  add = config.coll
+))) {
+  config.coll$push("The database schema name uses config$job_id, which must be in a valid
+             format.")
+}
+
+# check for valid method
+
+assert_choice(config$method,
+              c("isolation", "concurrent"),
+              null.ok = FALSE,
+              add = config.coll)
+
+# check testing is TRUE or FALSE
+
+assert_logical(config$testing, null.ok = FALSE, add = config.coll)
+
+# check for valid testing value
+
+assert_choice(config$testing,
+              c(TRUE, FALSE),
+              null.ok = FALSE,
+              add = config.coll)
+
+# check for valid logging threshold
+
+valid_threshold <-
+  c("FATAL",
+    "ERROR",
+    "WARN",
+    "INFO",
+    "DEBUG")
+
+assert_choice(config$loglevel,
+              valid_threshold,
+              null.ok = FALSE,
+              add = config.coll)
+
+# check for valid cores - must be at least 4 and leave OS with at least 2
+
+cores <- detectCores()
+
+if (isFALSE(assert_integer(
+  config$cores,
+  lower = 4,
+  upper = (cores - 2),
+  null.ok = FALSE,
+  add = config.coll
+))) {
+  config.coll$push(
+    paste(
+      "Minimum processor cores is 4 with at least 2 cores preserved
+                   for the OS. This system has",
+      cores,
+      " cores"
+    )
+  )
+}
+
+reportAssertions(config.coll)
+
+# Setting up logging-----------------------------------------------------------
 
 # delete existing log files
 if (file.exists("sdr.log")) {
@@ -31,22 +123,8 @@ if (file.exists("sa.log")) {
   file.remove("sa.log")
 }
 
-threshold <- "INFO" # DEBUG, INFO, WARN, ERROR, FATAL
 flog.appender(appender.file("sdr.log"))
-# set logging level
-flog.threshold(threshold)
-
-cat(
-  paste0(
-    "INFO [",
-    format(Sys.time()),
-    "] ",
-    "Starting model. Logging threshold is ",
-    threshold,
-    "\n"
-  ),
-  file = "sdr.log"
-)
+flog.threshold(config$loglevel)
 
 # capture R errors and warnings to be logged by futile.logger
 options(
@@ -65,14 +143,10 @@ options(
     })
 )
 
-# During testing set this variable to TRUE. This produces fake 60-minute
-# proposed station service areas which are actually only 5-minute service areas.
-testing <- TRUE
-flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
+# Setting up database connection-----------------------------------------------
 
-# Set up a database connection.
 # Using keyring package for storing database password in OS credential store
-# to avoid exposing on GitHub. Amend as appropriate.
+# to avoid exposing on GitHub.
 
 checkdb <- try(con <-
                  dbConnect(
@@ -86,12 +160,12 @@ if (class(checkdb) == "try-error") {
   stop("Database connection has not been established")
 }
 
-# Set up parallel processing
+# Setting up parallel processing-----------------------------------------------
 # This is currently used in the sdr_create_service_areas() and
 # sdr_generate_choicesets() functions, in a foreach loop.
 
-# Number of clusters is total available cores less two.
-cl <- makeCluster(detectCores() - 2)
+# Number of clusters from config file
+cl <- makeCluster(config$cores)
 registerDoParallel(cl)
 
 checkcl <- try(clusterEvalQ(cl, {
@@ -114,21 +188,16 @@ if (class(checkcl) == "try-error") {
   stop("clusterEvalQ failed")
 }
 
-# Get station crscodes from data.stations for later validation
+# Get station crscodes----------------------------------------------------------
 query <- paste0("
                 select crscode from data.stations
                 ")
 crscodes <- sdr_dbGetQuery(con, query)
 
-# Load input data-------------------------------------------------------
+# Load input data---------------------------------------------------------------
 
 # check that the input files exist and can be read
 file.coll <- checkmate::makeAssertCollection()
-assert_file_exists(
-  file.path(path, "config.csv", fsep = .Platform$file.sep),
-  access = "r",
-  add = file.coll
-)
 assert_file_exists(
   file.path(path, "freqgroups.csv", fsep = .Platform$file.sep),
   access = "r",
@@ -146,25 +215,19 @@ assert_file_exists(
 )
 checkmate::reportAssertions(file.coll)
 
-# load config.csv
-config <-
-  read.csv(
-    file = file.path(path, "config.csv", fsep = .Platform$file.sep),
-    sep = ";",
-    stringsAsFactors = FALSE,
-    na.strings = c("")
-  )
 
 # load freqgroups.csv
 freqgroups <-
   read.csv(
     file = file.path(path, "freqgroups.csv", fsep = .Platform$file.sep),
     sep = ";",
+    colClasses = c(
+      "group_id" = "character",
+      "group_crs" = "character"
+    ),
     stringsAsFactors = FALSE,
     na.strings = c("")
   )
-
-have_freqgroups <- ifelse(nrow(freqgroups) > 0, TRUE, FALSE)
 
 # load stations.csv
 stations <-
@@ -172,21 +235,87 @@ stations <-
     file = file.path(path, "stations.csv", fsep = .Platform$file.sep),
     sep = ";",
     colClasses = c(
+      "id" = "character",
       "stn_east" = "character",
       "stn_north" = "character",
       "acc_east" = "character",
       "acc_north" = "character",
+      "freq" = "integer",
+      "freqgrp" = "character",
+      "carsp" = "integer",
       "ticketm" = "logical",
       "busint" = "logical",
       "cctv" = "logical",
       "terminal" = "logical",
       "electric" = "logical",
       "tcbound" = "logical",
-      "category" = "character"
+      "category" = "character",
+      "abstract" = "character"
     ),
     stringsAsFactors = FALSE,
     na.strings = c("")
   )
+
+
+# load exogenous.csv
+exogenous <-
+  read.csv(
+    file = file.path(path, "exogenous.csv", fsep = .Platform$file.sep),
+    sep = ";",
+    colClasses = c(
+      "type" = "character",
+      "number" = "integer",
+      "centroid" = "character"
+    ),
+    stringsAsFactors = FALSE,
+    na.strings = c("")
+  )
+
+
+flog.info("Input files read")
+
+# Starting job-----------------------------------------------------------------
+
+# Set testing switch - If TRUE, this produces fake 60-minute proposed station
+# service areas which are actually only 5-minute service areas.
+testing <- config$testing
+
+# setting some variables
+have_freqgroups <- ifelse(nrow(freqgroups) > 0, TRUE, FALSE)
+have_exogenous <- ifelse(nrow(exogenous) > 0, TRUE, FALSE)
+isolation <- ifelse(config$method == "isolation", TRUE, FALSE)
+threshold <- config$loglevel
+
+cat(
+  paste0(
+    "INFO [",
+    format(Sys.time()),
+    "] ",
+    "Starting job. Logging threshold is ",
+    threshold,
+    "\n"
+  ),
+  file = "sdr.log"
+)
+
+flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
+
+# Check if we have the postcode polygons table
+
+query <- paste0(
+  "select exists (
+   select from information_schema.tables
+   where table_schema = 'data'
+   and table_name = 'postcode_polygons'
+)"
+)
+pcpoly <- sdr_dbGetQuery(con, query)
+
+# Pre-flight checks-------------------------------------------------------------
+
+preflight_failed <- FALSE
+
+# station checks---------------------------------------------------------------
 
 # create location column in stations (convert to numeric)
 stations$location <-
@@ -196,32 +325,34 @@ stations$location <-
 # rename id column
 colnames(stations)[1] <- "crscode"
 
-# load exogenous.csv
-exogenous <-
-  read.csv(
-    file = file.path(path, "exogenous.csv", fsep = .Platform$file.sep),
-    sep = ";",
-    stringsAsFactors = FALSE,
-    na.strings = c("")
-  )
+# Check that the ids (crscodes) are not used by any existing station
 
-have_exogenous <- ifelse(nrow(exogenous) > 0, TRUE, FALSE)
+idx <- which(stations$crscode %in% crscodes$crscode)
 
-flog.info("Input files read")
-
-
-# Pre-flight checks-------------------------------------------------------------
-
-preflight_failed <- FALSE
-
-# check for valid mode
-if (config$method == "isolation") {
-  isolation <- TRUE
-} else if (config$method == "concurrent") {
-  isolation <- FALSE
-} else {
+if (length(idx) > 0) {
   preflight_failed <- TRUE
-  flog.error("Model method not valid, must be \"isolation\" or \"concurrent\"")
+  flog.error(
+    paste0(
+      "The following station ids match existing station crscodes
+                   and cannot be used: ",
+      paste(stations$crscode[idx], collapse = ", ")
+    )
+  )
+}
+
+# check crscode is unique
+if (anyDuplicated(stations$crscode) > 0) {
+  preflight_failed <- TRUE
+  flog.error("Station id must be unique")
+}
+
+# check each row has a station name - must not be NA
+if (isFALSE(all(
+  vapply(stations$name, function(x)
+    grepl("^[a-zA-Z0-9 ]+$", x), logical(1), USE.NAMES = FALSE)
+))) {
+  preflight_failed <- TRUE
+  flog.error("Station name must be alphanumeric string of length >= 1")
 }
 
 # check region is valid
@@ -244,96 +375,52 @@ if (length(idx) > 0) {
   ))
 }
 
-# set schema name to job_id. Check begins with a-z, then a-z or 0-9 or _ for an
-# additional 5 matches only. Ensure valid postgresql schema format.
-if (grepl("^[a-z][a-z0-9_]{1,19}$", config$job_id, ignore.case = FALSE)) {
-  schema <- config$job_id
-} else {
+# station and access coordinates must be six digit strings 0-9
+if (isFALSE(all(vapply(stations$stn_east, function(x)
+  grepl("^[0-9]{6}$", x), logical(1))))) {
   preflight_failed <- TRUE
-  flog.error("Database schema name uses config$job_id, but it is not in a valid
-             format.")
+  flog.error("Station eastings must be 6 character strings containing 0-9 only")
 }
-
-# check crscode is unique
-if (anyDuplicated(stations$crscode) > 0) {
+if (isFALSE(all(vapply(stations$stn_north, function(x)
+  grepl("^[0-9]{6}$", x), logical(1))))) {
   preflight_failed <- TRUE
-  flog.error("Station id must be unique")
+  flog.error("Station northings must be 6 character strings containing 0-9 only")
 }
-
-# check each row has a station name - must not be NA
-if (isFALSE(all(
-  vapply(stations$name, function(x)
-    grepl("^[a-zA-Z0-9 ]+$", x), logical(1), USE.NAMES = FALSE)
-))) {
+if (isFALSE(all(vapply(stations$acc_east, function(x)
+  grepl("^[0-9]{6}$", x), logical(1))))) {
   preflight_failed <- TRUE
-  flog.error("Station name must be alphanumeric string of length >= 1")
+  flog.error("Access eastings must be 6 character strings containing 0-9 only")
 }
-
-# freqgroups checks
-if (isTRUE(have_freqgroups)) {
-  # check frequency group format is ok
-  fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
-  # check if all pairs match the required format
-  if (isFALSE(all(
-    vapply(fg_pairs, function(x)
-      grepl("^[A-Z]{3}:[0-9]{1,}$", x), logical(1), USE.NAMES = FALSE)
-  ))) {
-    preflight_failed <- TRUE
-    flog.error("Format of frequency groups is not correct")
-  }
-
-  # check crscodes in frequency groups are all valid
-  # get the unique crscodes from pairs
-  fg_crs <-
-    unique(vapply(fg_pairs, function(x)
-      sub(":.*", "", x), character(1), USE.NAMES = FALSE))
-  # get the index for those not valid
-  idx <- which(!(fg_crs %in% crscodes$crscode))
-  if (length(idx > 0)) {
-    preflight_failed <- TRUE
-    flog.error(paste(
-      "The following frequency group crscodes are not valid: ",
-      paste(fg_crs[idx], collapse = ", ")
-    ))
-  }
-}
-
-# check abstraction station format is correct, if not NA
-# i.e. check for CSV input of three uppercase characters separated by commas
-# (also allowing single crscode with no comma). Maximum of three crscodes.
-abs_check <-
-  vapply(na.omit(stations$abstract), function(x)
-    grepl("^([A-Z]{3})(,[A-Z]{3}){0,2}$", x), logical(1), USE.NAMES = FALSE)
-if (isFALSE(all(abs_check))) {
+if (isFALSE(all(vapply(stations$acc_north, function(x)
+  grepl("^[0-9]{6}$", x), logical(1))))) {
   preflight_failed <- TRUE
-  flog.error("Abstraction stations are not provided in the correct format")
+  flog.error("Access northings must be 6 character strings containing 0-9 only")
 }
 
-# check that abstraction stations (if there are any) have valid crscodes
-if (length(unique(na.omit(stations$abstract))) > 0) {
-  abs_crs <- unique(na.omit(unlist(strsplit(
-    stations$abstract, ","
-  ))))
-  # get the index for those not valid
-  idx <- which(!(abs_crs %in% crscodes$crscode))
-  if (length(idx > 0)) {
-    preflight_failed <- TRUE
-    flog.error(paste(
-      "The following abstraction group crscodes are not valid: ",
-      paste(abs_crs[idx], collapse = ", ")
-    ))
-  }
+# check if access location coordinates fall within GB extent
+check_coords <- function(coords) {
+  query <- paste0(
+    "
+    select st_intersects(st_setsrid(st_makepoint(",
+    coords,
+    "),27700), geom)
+    from data.gb_outline;
+    "
+  )
+  as.logical(sdr_dbGetQuery(con, query))
 }
 
-# check that frequency is integer > 0
-if (isFALSE(testIntegerish(stations$freq, lower = 1, any.missing = FALSE))) {
+idx <-
+  which(
+    vapply(stations$location, function(x)
+      check_coords(x), logical(1), USE.NAMES = FALSE) == FALSE
+  )
+if (length(idx) > 0) {
   preflight_failed <- TRUE
-  flog.error("Service frequency must be an integer > 0")
-}
-# check that carsp is integer > =0
-if (isFALSE(testIntegerish(stations$carsp, lower = 0, any.missing = FALSE))) {
-  preflight_failed <- TRUE
-  flog.error("Parking spaces must be an integer > 0")
+  flog.error(paste0(
+    "The following station access points do not fall within GB: ",
+    paste0(stations$crscode[idx], ": ", stations$location[idx], collapse = ", ")
+  ))
 }
 
 # If concurrent:
@@ -366,7 +453,7 @@ if (isFALSE(isolation)) {
 # crscode, freq, freqgrp, carsp
 if (isTRUE(isolation)) {
   # if remove columns that are allowed to change
-  if (nrow(stations %>% select(-crscode,-freq,-freqgrp,-carsp) %>%
+  if (nrow(stations %>% select(-crscode, -freq, -freqgrp, -carsp) %>%
            # distinct should now only return as many rows as there are unique
            # station names
            distinct()) != length(unique(stations$name))) {
@@ -378,7 +465,81 @@ if (isTRUE(isolation)) {
   }
 }
 
-# exogenous checks
+# check that frequency is integer > 0
+if (isFALSE(testIntegerish(stations$freq, lower = 1, any.missing = FALSE))) {
+  preflight_failed <- TRUE
+  flog.error("Service frequency must be an integer > 0")
+}
+# check that carsp is integer > =0
+if (isFALSE(testIntegerish(stations$carsp, lower = 0, any.missing = FALSE))) {
+  preflight_failed <- TRUE
+  flog.error("Parking spaces must be an integer > 0")
+}
+
+# check that station category is E or F
+if (isFALSE(testSubset(stations$category,
+              c("E", "F")))) {
+  preflight_failed <- TRUE
+  flog.error("Category must be either 'E' or 'F'")
+}
+
+# check abstraction station format is correct, if not NA
+# i.e. check for CSV input of three uppercase characters separated by commas
+# (also allowing single crscode with no comma). Maximum of three crscodes.
+abs_check <-
+  vapply(na.omit(stations$abstract), function(x)
+    grepl("^([A-Z]{3})(,[A-Z]{3}){0,2}$", x), logical(1), USE.NAMES = FALSE)
+if (isFALSE(all(abs_check))) {
+  preflight_failed <- TRUE
+  flog.error("Abstraction stations are not provided in the correct format")
+}
+
+# check that abstraction stations (if there are any) have valid crscodes
+if (length(unique(na.omit(stations$abstract))) > 0) {
+  abs_crs <- unique(na.omit(unlist(strsplit(
+    stations$abstract, ","
+  ))))
+  # get the index for those not valid
+  idx <- which(!(abs_crs %in% crscodes$crscode))
+  if (length(idx > 0)) {
+    preflight_failed <- TRUE
+    flog.error(paste(
+      "The following abstraction group crscodes are not valid: ",
+      paste(abs_crs[idx], collapse = ", ")
+    ))
+  }
+}
+
+# Frequency group checks---------------------------------------------------------
+if (isTRUE(have_freqgroups)) {
+  # check frequency group format is ok
+  fg_pairs <- unlist(strsplit(freqgroups$group_crs, ","))
+  # check if all pairs match the required format
+  if (isFALSE(all(
+    vapply(fg_pairs, function(x)
+      grepl("^[A-Z]{3}:[0-9]{1,}$", x), logical(1), USE.NAMES = FALSE)
+  ))) {
+    preflight_failed <- TRUE
+    flog.error("Format of frequency groups is not correct")
+  }
+
+  # check crscodes in frequency groups are all valid
+  # get the unique crscodes from pairs
+  fg_crs <-
+    unique(vapply(fg_pairs, function(x)
+      sub(":.*", "", x), character(1), USE.NAMES = FALSE))
+  # get the index for those not valid
+  idx <- which(!(fg_crs %in% crscodes$crscode))
+  if (length(idx > 0)) {
+    preflight_failed <- TRUE
+    flog.error(paste(
+      "The following frequency group crscodes are not valid: ",
+      paste(fg_crs[idx], collapse = ", ")
+    ))
+  }
+}
+
+# exogenous checks--------------------------------------------------------------
 if (isTRUE(have_exogenous)) {
   # check exogenous number column is positive integer for all rows
   if (!testIntegerish(exogenous$number, lower = 1, any.missing = FALSE)) {
@@ -443,57 +604,9 @@ if (isTRUE(have_exogenous)) {
   }
 }
 
-# station and access coordinates must be six digit strings 0-9
-if (isFALSE(all(vapply(stations$stn_east, function(x)
-  grepl("^[0-9]{6}$", x), logical(1))))) {
-  preflight_failed <- TRUE
-  flog.error("Station eastings must be 6 character strings containing 0-9 only")
-}
-if (isFALSE(all(vapply(stations$stn_north, function(x)
-  grepl("^[0-9]{6}$", x), logical(1))))) {
-  preflight_failed <- TRUE
-  flog.error("Station northings must be 6 character strings containing 0-9 only")
-}
-if (isFALSE(all(vapply(stations$acc_east, function(x)
-  grepl("^[0-9]{6}$", x), logical(1))))) {
-  preflight_failed <- TRUE
-  flog.error("Access eastings must be 6 character strings containing 0-9 only")
-}
-if (isFALSE(all(vapply(stations$acc_north, function(x)
-  grepl("^[0-9]{6}$", x), logical(1))))) {
-  preflight_failed <- TRUE
-  flog.error("Access northings must be 6 character strings containing 0-9 only")
-}
-
-# check if access location coordinates fall within GB extent
-check_coords <- function(coords) {
-  query <- paste0(
-    "
-    select st_intersects(st_setsrid(st_makepoint(",
-    coords,
-    "),27700), geom)
-    from data.gb_outline;
-    "
-  )
-  as.logical(sdr_dbGetQuery(con, query))
-}
-
-idx <-
-  which(
-    vapply(stations$location, function(x)
-      check_coords(x), logical(1), USE.NAMES = FALSE) == FALSE
-  )
-if (length(idx) > 0) {
-  preflight_failed <- TRUE
-  flog.error(paste0(
-    "The following station access points do not fall within GB: ",
-    paste0(stations$crscode[idx], ": ", stations$location[idx], collapse = ", ")
-  ))
-}
-
 # stop if any of the pre-flight checks have failed
 if (isTRUE(preflight_failed)) {
-  stop("Pre-flight checks have failed")
+  stop("Pre-flight checks have failed - see log file")
 } else {
   flog.info("Pre-flight checks passed")
 }
@@ -501,12 +614,15 @@ if (isTRUE(preflight_failed)) {
 
 # Database setup----------------------------------------------------------------
 
+# set schema name to job_id.
+schema <- config$job_id
+
 # create db schema to hold model data
 query <- paste0("
                 create schema ", schema)
 sdr_dbExecute(con, query)
 
-# write data.frame of proposed stations to postgresql table
+# write data.frame of proposed stations to postgreSQL table
 dbWriteTable(
   conn = con,
   Id(schema = schema, table = "proposed_stations"),
@@ -524,7 +640,6 @@ dbWriteTable(
   )
 )
 
-# set up id as primary key
 query <- paste0("
                 alter table ",
                 schema,
@@ -690,12 +805,15 @@ flog.info("Exogenous table successfully created")
 
 # create distance-based service areas used in identifying nearest 10 stations to
 # each postcode centroid
-flog.info("Starting to create station service areas")
+
 # Because there may be duplicate stations of the same name for sensitivity
 # analysis, we create the service areas for each unique station name in a
 # separate table and then update the proposed_stations table from that. While a
 # bit more complex, this removes unnecessary duplication of what can be a
 # relatively slow process for larger areas.
+
+flog.info("Starting to create station service areas")
+
 unique_stations <-
   stations %>%
   distinct(name, .keep_all = TRUE) %>%
@@ -716,7 +834,20 @@ sdr_create_service_areas(
   df = unique_stations,
   identifier = "name",
   table = "station_sas",
-  sa = c(1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000),
+  sa = c(
+    1000,
+    2000,
+    3000,
+    4000,
+    5000,
+    10000,
+    20000,
+    30000,
+    40000,
+    60000,
+    80000,
+    105000
+  ),
   cost = "len"
 )
 
@@ -778,7 +909,18 @@ if (testing) {
 # Add the required service area columns to proposed_stations table and update
 # the geometries from stations_sas.
 # distance-based
-for (i in c(1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 105000)) {
+for (i in c(1000,
+            2000,
+            3000,
+            4000,
+            5000,
+            10000,
+            20000,
+            30000,
+            40000,
+            60000,
+            80000,
+            105000)) {
   column_name <- paste0("service_area_", i / 1000, "km")
   query <-
     paste0(
@@ -1012,10 +1154,10 @@ sdr_dbExecute(con, query)
 
 for (crscode in stations$crscode) {
   if (isolation) {
-    sdr_create_json_catchment(schema, "proposed", crscode, tolower(crscode),
+    sdr_create_json_catchment(schema, "proposed", pcpoly$exists, crscode, tolower(crscode),
                               tolerance = 2)
   } else {
-    sdr_create_json_catchment(schema, "proposed", crscode, "concurrent",
+    sdr_create_json_catchment(schema, "proposed", pcpoly$exists, crscode, "concurrent",
                               tolerance = 2)
   }
 }
@@ -1273,6 +1415,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
           sdr_create_json_catchment(
             schema,
             "abstraction",
+            pcpoly$exists,
             at_risk,
             paste0(tolower(at_risk), "_before_abs_", tolower(crscode)),
             tolerance = 2
@@ -1323,6 +1466,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       sdr_create_json_catchment(
         schema,
         "abstraction",
+        pcpoly$exists,
         at_risk,
         paste0(tolower(at_risk), "_before_abs_concurrent"),
         tolerance = 2
@@ -1407,6 +1551,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
         sdr_create_json_catchment(
           schema,
           "abstraction",
+          pcpoly$exists,
           at_risk,
           paste0(tolower(at_risk),
                  "_after_abs_",
@@ -1484,6 +1629,7 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
       sdr_create_json_catchment(
         schema,
         "abstraction",
+        pcpoly$exists,
         at_risk,
         paste0(tolower(at_risk), "_after_abs_concurrent"),
         "concurrent",
@@ -1508,6 +1654,10 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
   sdr_dbExecute(con, query)
 
 } # end abstraction analysis
+
+# Pulling outputs---------------------------------------------------------------
+
+
 
 # Closing actions---------------------------------------------------------------
 
