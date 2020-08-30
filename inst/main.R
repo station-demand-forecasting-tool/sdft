@@ -221,10 +221,8 @@ freqgroups <-
   read.csv(
     file = file.path(path, "freqgroups.csv", fsep = .Platform$file.sep),
     sep = ";",
-    colClasses = c(
-      "group_id" = "character",
-      "group_crs" = "character"
-    ),
+    colClasses = c("group_id" = "character",
+                   "group_crs" = "character"),
     stringsAsFactors = FALSE,
     na.strings = c("")
   )
@@ -478,7 +476,7 @@ if (isFALSE(testIntegerish(stations$carsp, lower = 0, any.missing = FALSE))) {
 
 # check that station category is E or F
 if (isFALSE(testSubset(stations$category,
-              c("E", "F")))) {
+                       c("E", "F")))) {
   preflight_failed <- TRUE
   flog.error("Category must be either 'E' or 'F'")
 }
@@ -1154,10 +1152,18 @@ sdr_dbExecute(con, query)
 
 for (crscode in stations$crscode) {
   if (isolation) {
-    sdr_create_json_catchment(schema, "proposed", pcpoly$exists, crscode, tolower(crscode),
+    sdr_create_json_catchment(schema,
+                              "proposed",
+                              pcpoly$exists,
+                              crscode,
+                              tolower(crscode),
                               tolerance = 2)
   } else {
-    sdr_create_json_catchment(schema, "proposed", pcpoly$exists, crscode, "concurrent",
+    sdr_create_json_catchment(schema,
+                              "proposed",
+                              pcpoly$exists,
+                              crscode,
+                              "concurrent",
                               tolerance = 2)
   }
 }
