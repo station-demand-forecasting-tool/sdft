@@ -1,1 +1,1 @@
-utils::globalVariables(c("con", "threshold"))
+utils::globalVariables(c("con", "threshold", "out_path"))

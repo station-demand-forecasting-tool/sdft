@@ -30,32 +30,31 @@ sdr_create_service_areas <-
            columns = TRUE,
            cost = "len",
            target = 0.9) {
-
     j <- NULL
 
     # set number of records
     total_stations <- nrow(df)
 
     # begin the service area loop i
-      for (i in sa)
-      {
-        if (cost == "len") {
-          column_name <- paste0("service_area_", i / 1000, "km")
-          # for distance set buffer to same as distance - not possible for road
-          # distance to go beyond straight line distance
-          buffer <- i
-        } else if (cost == "time") {
-          column_name <- paste0("service_area_", i, "mins")
-          # for time set the buffer to 105000. The fastest road speed
-          # in roadlinks is 65 mph (105 kmph) so thereotical maximum distance
-          # that can be acheived in one hour is 105 km
-          buffer <- 105000
-        } else {
-          stop("Cost type does not exist")
-        }
+    for (i in sa)
+    {
+      if (cost == "len") {
+        column_name <- paste0("service_area_", i / 1000, "km")
+        # for distance set buffer to same as distance - not possible for road
+        # distance to go beyond straight line distance
+        buffer <- i
+      } else if (cost == "time") {
+        column_name <- paste0("service_area_", i, "mins")
+        # for time set the buffer to 105000. The fastest road speed
+        # in roadlinks is 65 mph (105 kmph) so thereotical maximum distance
+        # that can be acheived in one hour is 105 km
+        buffer <- 105000
+      } else {
+        stop("Cost type does not exist")
+      }
 
 
-        if (isTRUE(columns)) {
+      if (isTRUE(columns)) {
         # create sa column in table
         query <-
           paste0(
@@ -66,49 +65,49 @@ sdr_create_service_areas <-
             " geometry(Polygon,27700);"
           )
         sdr_dbExecute(con, query)
-        }
+      }
 
-        # Note that the pid provided in the virtual node sql to pgr_withpointsdd
-        # must be negative for the virtual nodes to be included when searching
-        # for nodes within driving distance. We want these included as they
-        # provide extra nodes on roads with few intersections (e.g. motorways).
-        # Also note: in this use-case virtual nodes cannot then be used as source
-        # nodes. The source node is therefore taken as the nearest real node on the
-        # nearest edge to the station. This node is found using pgr_pointtoedgenode,
-        # with a maximum 1000 km tolerance to nearest edge.
+      # Note that the pid provided in the virtual node sql to pgr_withpointsdd
+      # must be negative for the virtual nodes to be included when searching
+      # for nodes within driving distance. We want these included as they
+      # provide extra nodes on roads with few intersections (e.g. motorways).
+      # Also note: in this use-case virtual nodes cannot then be used as source
+      # nodes. The source node is therefore taken as the nearest real node on the
+      # nearest edge to the station. This node is found using pgr_pointtoedgenode,
+      # with a maximum 1000 km tolerance to nearest edge.
 
-        # ST_ConcaveHull can return Points, Linestrings, or Polygons so
-        # necessary to buffer any service area returned as a point or linestring
-        # thus creating a polygon that can be written to the database table.
+      # ST_ConcaveHull can return Points, Linestrings, or Polygons so
+      # necessary to buffer any service area returned as a point or linestring
+      # thus creating a polygon that can be written to the database table.
 
-        # Begin the stations loop j
-        #for (j in 1:total_stations) {
-        foreach::foreach(
-          j = 1:total_stations,
-          .noexport = "con",
-          .export = "threshold",
-          .packages = c("DBI", "RPostgres", "dplyr")
-        ) %dopar%
-          {
+      # Begin the stations loop j
+      #for (j in 1:total_stations) {
+      foreach::foreach(
+        j = 1:total_stations,
+        .noexport = "con",
+        .export = c("threshold", "out_path"),
+        .packages = c("DBI", "RPostgres", "dplyr")
+      ) %dopar%
+        {
           # futile.logger can't write to sdr.log within a foreach
-            # there's probably a solution but a workaround is to use cat().
-            # write to a separate file for each worker - compile after %dopar%
-            if (threshold == "DEBUG" |
-                threshold == "INFO") {
-              cat(
-                paste0(
-                  "INFO [",
-                  format(Sys.time()),
-                  "] Creating ",
-                  column_name,
-                  " for ",
-                  df[j, paste0(identifier)],
-                  "\n"
-                ),
-                file = paste0(j,".log"),
-                append = TRUE
-              )
-            }
+          # there's probably a solution but a workaround is to use cat().
+          # write to a separate file for each worker - compile after %dopar%
+          if (threshold == "DEBUG" |
+              threshold == "INFO") {
+            cat(
+              paste0(
+                "INFO [",
+                format(Sys.time()),
+                "] Creating ",
+                column_name,
+                " for ",
+                df[j, paste0(identifier)],
+                "\n"
+              ),
+              file = file.path(out_path, paste0(j, ".log"), fsep = .Platform$file.sep),
+              append = TRUE
+            )
+          }
           query <- paste0(
             "with tmp as
       (
@@ -134,7 +133,9 @@ sdr_create_service_areas <-
       left join openroads.vnodesneg_roadlinks as b on dd.node = -b.pid
       order by node
       ),
-      tmp2 as (select ST_ConcaveHull(ST_Collect(the_geom), ", target, ") as geom from tmp)
+      tmp2 as (select ST_ConcaveHull(ST_Collect(the_geom), ",
+            target,
+            ") as geom from tmp)
       update ",
             paste0(schema, '.', table),
             " set ",
@@ -160,7 +161,9 @@ sdr_create_service_areas <-
           # If null, repeat with target set to 1
           query <-
             paste0(
-              "select ", identifier, " from " ,
+              "select ",
+              identifier,
+              " from " ,
               paste0(schema, '.', table),
               " where ",
               column_name,
@@ -187,7 +190,7 @@ sdr_create_service_areas <-
                   ": re-running with target = 1",
                   "\n"
                 ),
-                file = paste0(j,".log"),
+                file = file.path(out_path, paste0(j, ".log"), fsep = .Platform$file.sep),
                 append = TRUE
               )
             }
@@ -238,21 +241,26 @@ sdr_create_service_areas <-
             sdr_dbExecute(con, query)
           }
         } # end %dopar%
-      } # end for i in sa
+    } # end for i in sa
 
     # collect log files into sa.log
     for (i in 1:total_stations) {
-      file.append("sa.log", paste0(i, ".log"))
-      file.remove(paste0(i, ".log"))
+      file.append(
+        file.path(out_path, "sa.log", fsep = .Platform$file.sep),
+        file.path(out_path, paste0(i, ".log"), fsep = .Platform$file.sep)
+      )
+      file.remove(file.path(out_path, paste0(i, ".log"), fsep = .Platform$file.sep))
     }
     # append sa.log to sdr.log
     cat(
-      sort(readr::read_lines(file = "sa.log")),
-      file = "sdr.log",
+      sort(readr::read_lines(
+        file = file.path(out_path, "sa.log", fsep = .Platform$file.sep)
+      )),
+      file = file.path(out_path, "sdr.log", fsep = .Platform$file.sep),
       append = TRUE,
       fill = TRUE
     )
-    file.remove("sa.log")
+    file.remove(file.path(out_path, "sa.log", fsep = .Platform$file.sep))
 
 
   } # end function

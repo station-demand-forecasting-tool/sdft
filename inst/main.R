@@ -13,21 +13,30 @@ library(DBI)
 library(futile.logger)
 library(checkmate)
 
-# main file path
-path <-
-  file.path("inst", "input", fsep = .Platform$file.sep)
+
+# check and set directory path - check for SDFT_PATH
+
+if ("SDFT_PATH" %in% names(Sys.getenv())) {
+  assert_directory_exists(Sys.getenv("SDFT_PATH"), access = "w")
+  path <- Sys.getenv("SDFT_PATH")
+} else {
+  assert_directory_exists(getwd(), access = "w")
+  path <- getwd()
+}
+
+in_path <- (file.path(path, "input", fsep = .Platform$file.sep))
 
 # Configuration----------------------------------------------------------------
 
 # Check config file exists
 
-assert_file_exists(file.path(path, "config.csv", fsep = .Platform$file.sep),
+assert_file_exists(file.path(in_path, "config.csv", fsep = .Platform$file.sep),
                    access = "r")
 
 # Read config file
 config <-
   read.csv(
-    file = file.path(path, "config.csv", fsep = .Platform$file.sep),
+    file = file.path(in_path, "config.csv", fsep = .Platform$file.sep),
     sep = ";",
     colClasses = c(
       "job_id" = "character",
@@ -111,19 +120,27 @@ if (isFALSE(assert_integer(
 
 reportAssertions(config.coll)
 
+# create output directory if it doesn't already exist
+
+out_path <-
+  (file.path(path, "output", config$job_id, fsep = .Platform$file.sep))
+
+if (!dir.exists(out_path)) {
+  dir.create(out_path)
+}
+
+
 # Setting up logging-----------------------------------------------------------
 
-# delete existing log files
-if (file.exists("sdr.log")) {
-  file.remove("sdr.log")
-}
+log_file <-
+  file.path(out_path, "sdr.log", fsep = .Platform$file.sep)
 
 # delete existing log file
-if (file.exists("sa.log")) {
-  file.remove("sa.log")
+if (file.exists(log_file)) {
+  file.remove(log_file)
 }
 
-flog.appender(appender.file("sdr.log"))
+flog.appender(appender.file(log_file))
 flog.threshold(config$loglevel)
 
 # capture R errors and warnings to be logged by futile.logger
@@ -199,17 +216,17 @@ crscodes <- sdr_dbGetQuery(con, query)
 # check that the input files exist and can be read
 file.coll <- checkmate::makeAssertCollection()
 assert_file_exists(
-  file.path(path, "freqgroups.csv", fsep = .Platform$file.sep),
+  file.path(in_path, "freqgroups.csv", fsep = .Platform$file.sep),
   access = "r",
   add = file.coll
 )
 assert_file_exists(
-  file.path(path, "stations.csv", fsep = .Platform$file.sep),
+  file.path(in_path, "stations.csv", fsep = .Platform$file.sep),
   access = "r",
   add = file.coll
 )
 assert_file_exists(
-  file.path(path, "exogenous.csv", fsep = .Platform$file.sep),
+  file.path(in_path, "exogenous.csv", fsep = .Platform$file.sep),
   access = "r",
   add = file.coll
 )
@@ -219,7 +236,7 @@ checkmate::reportAssertions(file.coll)
 # load freqgroups.csv
 freqgroups <-
   read.csv(
-    file = file.path(path, "freqgroups.csv", fsep = .Platform$file.sep),
+    file = file.path(in_path, "freqgroups.csv", fsep = .Platform$file.sep),
     sep = ";",
     colClasses = c("group_id" = "character",
                    "group_crs" = "character"),
@@ -230,7 +247,7 @@ freqgroups <-
 # load stations.csv
 stations <-
   read.csv(
-    file = file.path(path, "stations.csv", fsep = .Platform$file.sep),
+    file = file.path(in_path, "stations.csv", fsep = .Platform$file.sep),
     sep = ";",
     colClasses = c(
       "id" = "character",
@@ -258,7 +275,7 @@ stations <-
 # load exogenous.csv
 exogenous <-
   read.csv(
-    file = file.path(path, "exogenous.csv", fsep = .Platform$file.sep),
+    file = file.path(in_path, "exogenous.csv", fsep = .Platform$file.sep),
     sep = ";",
     colClasses = c(
       "type" = "character",
@@ -298,7 +315,7 @@ cat(
 
 flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
 
-# Check if we have the postcode polygons table
+# Check if the postcode_polygons table is available
 
 query <- paste0(
   "select exists (
@@ -1663,7 +1680,107 @@ if (length(unique(na.omit(stations$abstract))) > 0) {
 
 # Pulling outputs---------------------------------------------------------------
 
+# stations
 
+query <-
+  paste0(
+    "select crscode as id, name, region, stn_east as station_easting, stn_north as station_northing,
+acc_east as access_easting, acc_north as access_northing, freq as frequency, freqgrp as frequency_group, carsp as parking_spaces, ticketm as ticket_machine, busint as bus_interchange, cctv, terminal as terminal_station, tcbound as travelcard_boundary, category, abstract as abstraction_stations, workpop_2min as work_population_2mins, prw_pop as weighted_population, forecast_base, forecast_uplift
+from ",
+    schema,
+    ".proposed_stations"
+  )
+out_stations <- sdr_dbGetQuery(con, query)
+write.csv(
+  out_stations,
+  file.path(out_path, "station_forecast.csv", fsep = .Platform$file.sep)
+)
+
+# abstraction analysis
+
+if (length(unique(na.omit(stations$abstract))) > 0) {
+  query <- paste0(
+    "select proposed as proposed_id, proposed_name, at_risk as impacted_station, prwpop_before, prwpop_after, change, pc_change, entsexits as entries_exits, adj_trips, trips_change
+from ",
+    schema,
+    ".abstraction_results"
+  )
+  out_abstract <- sdr_dbGetQuery(con, query)
+  write.csv(
+    out_abstract,
+    file.path(out_path, "abstraction_analysis.csv", fsep = .Platform$file.sep)
+  )
+}
+
+# Exogenous table
+query <- paste0(
+  "select type, number, centroid, population, avg_hhsize from ",
+  schema,
+  ".exogenous_input"
+)
+out_exogenous <- sdr_dbGetQuery(con, query)
+write.csv(
+  out_exogenous,
+  file.path(out_path, "exogenous_inputs.csv", fsep = .Platform$file.sep)
+)
+
+# Station catchments
+
+query <- paste0("select crscode, catchment from ", schema, ".proposed_stations")
+out_catchments <- sdr_dbGetQuery(con, query)
+
+for (crscode in out_catchments$crscode) {
+  write(out_catchments$catchment,
+        file.path(
+          out_path,
+          paste0(tolower(crscode), "_catchment.geojson"),
+          fsep = .Platform$file.sep
+        ))
+}
+
+# Abstraction catchments
+
+if (length(unique(na.omit(stations$abstract))) > 0) {
+  query <- paste0(
+    "select proposed, at_risk, catchment_before, catchment_after from ",
+    schema,
+    ".abstraction_results"
+  )
+  out_abscatchments <- sdr_dbGetQuery(con, query)
+
+  for (crscode in out_abscatchments$proposed) {
+    write(
+      out_abscatchments$catchment_before,
+      file.path(
+        out_path,
+        paste0(
+          tolower(crscode),
+          "_",
+          tolower(at_risk),
+          "_catchment_before.geojson"
+        ),
+        fsep = .Platform$file.sep
+      )
+    )
+  }
+
+  for (crscode in out_abscatchments$proposed) {
+    write(
+      out_abscatchments$catchment_after,
+      file.path(
+        out_path,
+        paste0(
+          tolower(crscode),
+          "_",
+          tolower(at_risk),
+          "_catchment_after.geojson"
+        ),
+        fsep = .Platform$file.sep
+      )
+    )
+  }
+
+}
 
 # Closing actions---------------------------------------------------------------
 

@@ -1,5 +1,14 @@
 # stationdemandr 0.2.4.9000
 
+- several additional configuration options via config.csv: testing, loglevel and cores
+- now check whether the postcode-polygons table is present in the data schema. If it
+isn't then the catchment will only consist of postcode centroids. This is because the
+OS postcode polygons dataset is not open data.
+- some additional input checks.
+- user can specify directory for inputs and outputs using SDFT_PATH environment variable. If
+not specified the current working directory is used.
+- pulling results from postgreSQL into output folder.
+
 
 ## Data Issues
 
