@@ -1,13 +1,15 @@
-# stationdemandr 0.2.4.9000
+# stationdemandr 0.3.0
 
+- converted main.R script into `sdr_submit()` function that takes database connection details
+and directory path (for inputs and outputs) as arguments. User must set the database
+user password using `key_set()`.
 - several additional configuration options via config.csv: testing, loglevel and cores
+- some additional input checks.
 - now check whether the postcode-polygons table is present in the data schema. If it
 isn't then the catchment will only consist of postcode centroids. This is because the
 OS postcode polygons dataset is not open data.
-- some additional input checks.
-- user can specify directory for inputs and outputs using SDFT_PATH environment variable. If
-not specified the current working directory is used.
-- pulling results from postgreSQL into output folder.
+- Results are now pulled from postgreSQL into an output folder. Includes forecasts and
+catchments in GeoJSON format.
 
 
 ## Data Issues

@@ -4,14 +4,13 @@
 #' choicesets contained in the specified probability table for the proposed
 #' station (isolation) or stations (concurrent). The required columns are
 #' created in the table.
+#' @param con An RPostgres database connection object.
 #' @param schema Character, the database schema name.
 #' @param tablesuffix Character, the suffix of the probability table - either
 #' crscode (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
 
-sdr_calculate_probabilities <- function(schema, tablesuffix) {
-
-
+sdr_calculate_probabilities <- function(con, schema, tablesuffix) {
   # --------+--------------------------------------------------------------------
   #         |                  Standard            Prob.      95% Confidence
   # CHOICE  |  Coefficient       Error       z    |z|>Z*         Interval
@@ -38,7 +37,9 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
   # create probability columns
   query <-
     paste(
-      "alter table ", schema, ".probability_",
+      "alter table ",
+      schema,
+      ".probability_",
       tolower(tablesuffix),
       "
       add column te19_expv numeric,
@@ -56,19 +57,37 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
   # calculate probability
   query <-
     paste0(
-      "update ", schema, ".probability_",
+      "update ",
+      schema,
+      ".probability_",
       tolower(tablesuffix),
       "
       set te19_expv =
       exp(
-      (nearest * ", var_nearest ,") +
-      (sqr_dist * ", var_sqr_dist ,") +
-      (cat_f * ", var_cat_f ,") +
-      (ln_dfreq * ", var_ln_dfqal ,") +
-      (cctv * ", var_cctv ,") +
-      (carspaces * ", var_cpspaces ,") +
-      (ticketmachine * ", var_ticketm ,") +
-      (buses * ", var_buses ,")
+      (nearest * ",
+      var_nearest ,
+      ") +
+      (sqr_dist * ",
+      var_sqr_dist ,
+      ") +
+      (cat_f * ",
+      var_cat_f ,
+      ") +
+      (ln_dfreq * ",
+      var_ln_dfqal ,
+      ") +
+      (cctv * ",
+      var_cctv ,
+      ") +
+      (carspaces * ",
+      var_cpspaces ,
+      ") +
+      (ticketmachine * ",
+      var_ticketm ,
+      ") +
+      (buses * ",
+      var_buses ,
+      ")
       )
       "
     )
@@ -76,24 +95,32 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
 
   query <-
     paste0(
-      "update ", schema, ".probability_",
+      "update ",
+      schema,
+      ".probability_",
       tolower(tablesuffix),
       " set te19_sum_expv = b.sumexpv from
       (
-      select id, (sum(te19_expv) over (partition by postcode)) as sumexpv from ", schema, ".probability_",
+      select id, (sum(te19_expv) over (partition by postcode)) as sumexpv from ",
+      schema,
+      ".probability_",
       tolower(tablesuffix),
       "
       ) as b
-      where b.id = ", schema, ".probability_",
+      where b.id = ",
+      schema,
+      ".probability_",
       tolower(tablesuffix),
       ".id;
       "
-      )
+    )
   sdr_dbExecute(con, query)
 
   query <-
     paste(
-      "update ", schema, ".probability_",
+      "update ",
+      schema,
+      ".probability_",
       tolower(tablesuffix),
       "
       set te19_prob =
@@ -103,22 +130,24 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
     )
   sdr_dbExecute(con, query)
 
- # create indexes
- query <-
-    paste(
-      "
-      create index on ", schema, ".probability_",
-      tolower(tablesuffix),
-      " (crscode)
+  # create indexes
+  query <-
+    paste("
+      create index on ",
+          schema,
+          ".probability_",
+          tolower(tablesuffix),
+          " (crscode)
       ",
-      sep = ""
-    )
+          sep = "")
   sdr_dbExecute(con, query)
 
   query <-
     paste(
       "
-      create index on ", schema, ".probability_",
+      create index on ",
+      schema,
+      ".probability_",
       tolower(tablesuffix),
       " (postcode)
       ",
@@ -129,7 +158,9 @@ sdr_calculate_probabilities <- function(schema, tablesuffix) {
   query <-
     paste(
       "
-      create index on ", schema, ".probability_",
+      create index on ",
+      schema,
+      ".probability_",
       tolower(tablesuffix),
       " (distance)
       ",

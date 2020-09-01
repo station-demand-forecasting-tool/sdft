@@ -1,7 +1,7 @@
 Package: stationdemandr
 Type: Package
 Title: Model to forecast demand for new local railway stations
-Version: 0.2.4
+Version: 0.3.0
 Authors@R: person("Marcus", "Young", email = "m.a.young@soton.ac.uk", role = c("aut", "cre"))
 Description: This model is intended to forecast demand for new local railway stations. 
   It has been calibrated on all Category E and F stations in mainland GB and incorporates
@@ -19,5 +19,11 @@ Imports:
     futile.logger,
     stringr,
     readr,
-    DBI
+    DBI,
+    doParallel,
+    keyring,
+    checkmate,
+    stats,
+    utils,
+    rlang
 RoxygenNote: 7.1.1

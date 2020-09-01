@@ -4,9 +4,11 @@
 \alias{sdr_calculate_prweighted_population}
 \title{Calculates the total probability weighted population for a station}
 \usage{
-sdr_calculate_prweighted_population(schema, crs, tablesuffix)
+sdr_calculate_prweighted_population(con, schema, crs, tablesuffix)
 }
 \arguments{
+\item{con}{An RPostgres database connection object.}
+
 \item{schema}{Character, the database schema name.}
 
 \item{crs}{Character, the crscode of the station.}

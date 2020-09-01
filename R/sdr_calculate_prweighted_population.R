@@ -31,98 +31,135 @@
 #' present in the probability table and it will not in those circumstances
 #' contribute to the sum - as in SQL, NULL times anything is NULL.
 #'
+#' @param con An RPostgres database connection object.
 #' @param schema Character, the database schema name.
 #' @param crs Character, the crscode of the station.
 #' @param tablesuffix Character, the suffix of the probability table - either
 #' crscode (isolation) or 'concurrent' (concurrent) is expected.
 #' @export
-sdr_calculate_prweighted_population <- function(schema, crs, tablesuffix) {
-
-if (tablesuffix == "concurrent") {
-  futile.logger::flog.info(paste0("Getting probability weighted population for: ", crs, ", from: probability_", tolower(tablesuffix)))
-  query <- paste0(
-      "
+sdr_calculate_prweighted_population <-
+  function(con, schema, crs, tablesuffix) {
+    if (tablesuffix == "concurrent") {
+      futile.logger::flog.info(
+        paste0(
+          "Getting probability weighted population for: ",
+          crs,
+          ", from: probability_",
+          tolower(tablesuffix)
+        )
+      )
+      query <- paste0(
+        "
       with nw_pop as(
       select
-      sum(a.te19_prob * b.population) from ", schema, ".probability_",
-      tolower(tablesuffix),
-      " as a
+      sum(a.te19_prob * b.population) from ",
+        schema,
+        ".probability_",
+        tolower(tablesuffix),
+        " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
-      left join ", schema, ".proposed_stations as c on a.crscode = c.crscode
+      left join ",
+        schema,
+        ".proposed_stations as c on a.crscode = c.crscode
       where a.crscode = '",
-      crs,
-      "' and a.distance <= 750 and st_within(b.geom, c.service_area_60mins)
+        crs,
+        "' and a.distance <= 750 and st_within(b.geom, c.service_area_60mins)
       ), w_pop as (
       select
-      sum(a.te19_prob * b.population * power((((a.distance - 750) / 1000) +1), -1.5212)) from ", schema, ".probability_",
-      tolower(tablesuffix),
-      " as a
+      sum(a.te19_prob * b.population * power((((a.distance - 750) / 1000) +1), -1.5212)) from ",
+        schema,
+        ".probability_",
+        tolower(tablesuffix),
+        " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
-      left join ", schema, ".proposed_stations as c on a.crscode = c.crscode
+      left join ",
+        schema,
+        ".proposed_stations as c on a.crscode = c.crscode
       where a.crscode = '",
-      crs,
-      "' and a.distance > 750 and st_within(b.geom, c.service_area_60mins)
+        crs,
+        "' and a.distance > 750 and st_within(b.geom, c.service_area_60mins)
       ), adj_pop as (
       select sum (
       case when b.distance <= 750 then b.te19_prob * a.population
       when b.distance > 750 then b.te19_prob * a.population * power((((b.distance - 750) / 1000) +1), -1.5212)
       end)
-      from ", schema, ".exogenous_input as a
-      left join ", schema, ".probability_",
-      tolower(tablesuffix),
-      " as b
+      from ",
+        schema,
+        ".exogenous_input as a
+      left join ",
+        schema,
+        ".probability_",
+        tolower(tablesuffix),
+        " as b
       on a.centroid = b.postcode and b.crscode = '",
-      crs,
-      "'
+        crs,
+        "'
       where type = 'population' or type = 'houses'
-      and st_within (a.geom, (select service_area_60mins from ", schema, ".proposed_stations where crscode = '",
-      crs,
-      "'))
+      and st_within (a.geom, (select service_area_60mins from ",
+        schema,
+        ".proposed_stations where crscode = '",
+        crs,
+        "'))
       )
       select round(coalesce(nw_pop.sum, 0) + coalesce(w_pop.sum, 0) + coalesce(adj_pop.sum, 0)) as w_pop from nw_pop, w_pop, adj_pop
       "
       )
-    result <- sdr_dbGetQuery(con, query)
-  } else {
-    futile.logger::flog.info(paste0("Getting probability weighted population for: ", crs, ", from: probability_", tolower(tablesuffix)))
-    query <- paste0(
-      "
+      result <- sdr_dbGetQuery(con, query)
+    } else {
+      futile.logger::flog.info(
+        paste0(
+          "Getting probability weighted population for: ",
+          crs,
+          ", from: probability_",
+          tolower(tablesuffix)
+        )
+      )
+      query <- paste0(
+        "
       with nw_pop as(
       select
-      sum(a.te19_prob * b.population) from ", schema, ".probability_",
-      tolower(tablesuffix),
-      " as a
+      sum(a.te19_prob * b.population) from ",
+        schema,
+        ".probability_",
+        tolower(tablesuffix),
+        " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
       where a.crscode = '",
-      crs,
-      "' and a.distance <= 750
+        crs,
+        "' and a.distance <= 750
       ), w_pop as (
       select
-      sum(a.te19_prob * b.population * power((((a.distance - 750) / 1000) +1), -1.5212)) from ", schema, ".probability_",
-      tolower(tablesuffix),
-      " as a
+      sum(a.te19_prob * b.population * power((((a.distance - 750) / 1000) +1), -1.5212)) from ",
+        schema,
+        ".probability_",
+        tolower(tablesuffix),
+        " as a
       left join data.pc_pop_2011 as b on a.postcode = b.postcode
       where a.crscode = '",
-      crs,
-      "' and a.distance > 750
+        crs,
+        "' and a.distance > 750
       ), adj_pop as (
       select sum (
       case when b.distance <=750 then b.te19_prob * a.population
       when b.distance > 750 then b.te19_prob * a.population * power((((b.distance - 750) / 1000) +1), -1.5212)
       end)
-      from ", schema, ".exogenous_input as a
-      left join ", schema, ".probability_",
-      tolower(tablesuffix),
-      " as b
+      from ",
+        schema,
+        ".exogenous_input as a
+      left join ",
+        schema,
+        ".probability_",
+        tolower(tablesuffix),
+        " as b
       on a.centroid = b.postcode and b.crscode = '",
-      crs,
-      "'
+        crs,
+        "'
       where type = 'population' or type = 'houses'
       )
       select round(coalesce(nw_pop.sum, 0) + coalesce(w_pop.sum, 0) + coalesce(adj_pop.sum, 0)) as w_pop from nw_pop, w_pop, adj_pop
       "
       )
-    result <- sdr_dbGetQuery(con, query)
+      result <- sdr_dbGetQuery(con, query)
+    }
+    return(as.numeric(result))
   }
-return(as.numeric(result))
-}

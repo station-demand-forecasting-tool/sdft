@@ -1,1 +1,0 @@
-source ("inst/main.R")

@@ -4,9 +4,11 @@
 \alias{sdr_generate_choicesets}
 \title{Generates a choice set of ten nearest stations for postcodes}
 \usage{
-sdr_generate_choicesets(schema, crs, existing = FALSE, abs_crs = NULL)
+sdr_generate_choicesets(con, schema, crs, existing = FALSE, abs_crs = NULL)
 }
 \arguments{
+\item{con}{An RPostgres database connection object.}
+
 \item{schema}{Character, the database schema name.}
 
 \item{crs}{Character vector of the crscode(s) of the station(s)

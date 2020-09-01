@@ -4,9 +4,11 @@
 \alias{sdr_frequency_group_adjustment}
 \title{Adjusts the service frequency of stations based on frequency group}
 \usage{
-sdr_frequency_group_adjustment(schema, df, tablesuffix)
+sdr_frequency_group_adjustment(con, schema, df, tablesuffix)
 }
 \arguments{
+\item{con}{An RPostgres database connection object.}
+
 \item{schema}{Character, the database schema name.}
 
 \item{df}{A data frame containing the frequency group input. In isolation mode

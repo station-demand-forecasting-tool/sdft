@@ -4,9 +4,11 @@
 \alias{sdr_calculate_probabilities}
 \title{Calculates the probabilities for postcode choicesets}
 \usage{
-sdr_calculate_probabilities(schema, tablesuffix)
+sdr_calculate_probabilities(con, schema, tablesuffix)
 }
 \arguments{
+\item{con}{An RPostgres database connection object.}
+
 \item{schema}{Character, the database schema name.}
 
 \item{tablesuffix}{Character, the suffix of the probability table - either

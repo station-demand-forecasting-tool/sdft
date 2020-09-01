@@ -21,6 +21,7 @@
 #' in the case of concurrent mode) then an \emph{after} catchment is generated,
 #' reflecting the situation after \code{abs_crs}.
 #'
+#' @param con An RPostgres database connection object.
 #' @param schema Character, the database schema name.
 #' @param type Character, must be either "proposed" or "abstraction". Indicates
 #' whether this catchment is required for a proposed station or as part of an
@@ -43,7 +44,8 @@
 #' is 0.1.
 #' @export
 sdr_create_json_catchment <-
-  function(schema,
+  function(con,
+           schema,
            type,
            pcpoly = FALSE,
            crs,
@@ -51,7 +53,6 @@ sdr_create_json_catchment <-
            abs_crs = NULL,
            cutoff = 0.01,
            tolerance = 0.1) {
-
     # define table and column names and where clauses
     if (type == "proposed") {
       update_table <- paste0(schema, ".proposed_stations")
@@ -85,13 +86,12 @@ sdr_create_json_catchment <-
     )
 
     if (isTRUE(pcpoly)) {
-
-    query <- paste0(
-      "update ",
-      update_table,
-      " set ",
-      set_column,
-      " = (		select row_to_json(fc)
+      query <- paste0(
+        "update ",
+        update_table,
+        " set ",
+        set_column,
+        " = (		select row_to_json(fc)
     from (
 select
     'FeatureCollection' as \"type\",
@@ -100,19 +100,19 @@ select
 
 with tmp as (
 select round(a.te19_prob, 1) as probability, st_union(b.geom) as geom from ",
-      schema,
-      ".probability_",
-      tablesuffix,
-      " a
+        schema,
+        ".probability_",
+        tablesuffix,
+        " a
 left join data.postcode_polygons b on a.postcode = b.postcode
   left join data.pc_pop_2011 c on a.postcode = c.postcode
     where a.crscode = '",
-      crs,
-      "' and a.te19_prob > 0.01 and st_within(c.geom, (select service_area_60mins from ",
-      sa_table,
-      " where crscode = '",
-      crs,
-      "'))
+        crs,
+        "' and a.te19_prob > 0.01 and st_within(c.geom, (select service_area_60mins from ",
+        sa_table,
+        " where crscode = '",
+        crs,
+        "'))
 group by probability
 )
 select
@@ -128,8 +128,8 @@ select
       from tmp as a
 		 ) as f
     ) as fc ) where ",
-    where_clause
-    )
+      where_clause
+      )
     } else {
       query <- paste0(
         "update ",
@@ -174,8 +174,8 @@ select
     ) as fc ) where ",
       where_clause
       )
-}
+    }
 
 
-sdr_dbExecute(con, query)
+    sdr_dbExecute(con, query)
   }

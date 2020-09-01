@@ -5,6 +5,8 @@
 \title{Creates a distance or time based network service area around stations}
 \usage{
 sdr_create_service_areas(
+  con,
+  out_path,
   schema,
   df,
   identifier,
@@ -16,6 +18,10 @@ sdr_create_service_areas(
 )
 }
 \arguments{
+\item{con}{An RPostgres database connection object.}
+
+\item{out_path}{Path to the output folder for logging.}
+
 \item{schema}{Character, the database schema name.}
 
 \item{df}{A data frame with a column named "location"

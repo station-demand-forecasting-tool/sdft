@@ -47,6 +47,7 @@
 #' schema.proposed_stations and that part of the union query will simply return
 #' null.
 #'
+#' @param con An RPostgres database connection object.
 #' @param schema Character, the database schema name.
 #' @param crs Character vector of the crscode(s) of the station(s)
 #' for which a set of postcode choicesets is required.
@@ -58,21 +59,16 @@
 #' @return Returns a data frame containing the postcode choicesets with stations
 #' ranked by distance from the postcode centroid.
 #' @importFrom foreach %dopar%
+#' @importFrom rlang .data
 #' @export
 sdr_generate_choicesets <-
-  function(schema,
+  function(con,
+           schema,
            crs,
            existing = FALSE ,
            abs_crs = NULL) {
-
-    # undefined global variables/functions
+    # undefined global variables
     i <- NULL
-    distance <- NULL
-    distance_rank <- NULL
-    postcode <- NULL
-    crscode <- NULL
-    n <- NULL
-    number <- NULL
 
     # Set which station the set of postcode choicesets is required for
     # This will be the content of crs, or abs_crs if it is specified.
@@ -199,11 +195,17 @@ sdr_generate_choicesets <-
     # create index
 
     query <- paste0("create index idx_centroidnodes_pid
-    on ", schema, ".centroidnodes(pid)")
+    on ",
+                    schema,
+                    ".centroidnodes(pid)")
     sdr_dbExecute(con, query)
 
-    query <- paste0("create index idx_centroidnodes_reference
-    on ", schema, ".centroidnodes(reference)")
+    query <- paste0(
+      "create index idx_centroidnodes_reference
+    on ",
+      schema,
+      ".centroidnodes(reference)"
+    )
     sdr_dbExecute(con, query)
 
     # create view of existing and proposed station(s)
@@ -262,23 +264,32 @@ sdr_generate_choicesets <-
 
     # create spatial indexes for the service areas
 
-    sa_names <- c("service_area_1km",
-                  "service_area_2km",
-                  "service_area_3km",
-                  "service_area_4km",
-                  "service_area_5km",
-                  "service_area_10km",
-                  "service_area_20km",
-                  "service_area_30km",
-                  "service_area_40km",
-                  "service_area_60km",
-                  "service_area_80km",
-                  "service_area_105km")
+    sa_names <- c(
+      "service_area_1km",
+      "service_area_2km",
+      "service_area_3km",
+      "service_area_4km",
+      "service_area_5km",
+      "service_area_10km",
+      "service_area_20km",
+      "service_area_30km",
+      "service_area_40km",
+      "service_area_60km",
+      "service_area_80km",
+      "service_area_105km"
+    )
 
     for (sa_name in sa_names) {
-    query <- paste0("create index idx_stations_", sa_name,
-    " on ", schema, ".stations using gist(", sa_name, ")")
-    sdr_dbExecute(con, query)
+      query <- paste0(
+        "create index idx_stations_",
+        sa_name,
+        " on ",
+        schema,
+        ".stations using gist(",
+        sa_name,
+        ")"
+      )
+      sdr_dbExecute(con, query)
     }
 
     # generate choicesets using parallel processing
@@ -358,18 +369,18 @@ sdr_generate_choicesets <-
             }
           } # end for distance NA
           choiceset <-
-            nearestx %>% dplyr::mutate("distance_rank" = dplyr::row_number(distance)) %>%
-            dplyr::filter(distance_rank <= 10) %>%
-            dplyr::arrange(distance_rank)
-          } # end if nearestx not empty
-        } # end foreach postcode parallel processing
+            nearestx %>% dplyr::mutate("distance_rank" = dplyr::row_number(.data$distance)) %>%
+            dplyr::filter(.data$distance_rank <= 10) %>%
+            dplyr::arrange(.data$distance_rank)
+        } # end if nearestx not empty
+      } # end foreach postcode parallel processing
 
     # drop materialized views
 
     query <- paste0("
                 drop materialized view " ,
-      schema,
-      ".centroidnodes
+                    schema,
+                    ".centroidnodes
                 ")
     sdr_dbExecute(con, query)
 
@@ -391,9 +402,9 @@ sdr_generate_choicesets <-
       paste0(pc_crs, collapse = ", ")
     ))
     df <- df %>%
-      dplyr::group_by(postcode) %>%
+      dplyr::group_by(.data$postcode) %>%
       # note: dplyr filter(any(...)) evaluates at the group_by() level
-      dplyr::filter(any(crscode %in% pc_crs))
+      dplyr::filter(any(.data$crscode %in% pc_crs))
 
     futile.logger::flog.info(paste0("Rows: ", nrow(df)))
     futile.logger::flog.info(paste0("Unique postcodes: ", length(unique(df$postcode))))
@@ -402,7 +413,7 @@ sdr_generate_choicesets <-
     # postcode:station distances could not be obtained - distance value will be -9999
     # first generate warning
     if (length(which(df$distance == -9999)) > 0) {
-      pc_missing_d <- df %>% dplyr::filter(any(distance == -9999))
+      pc_missing_d <- df %>% dplyr::filter(any(.data$distance == -9999))
       msg <-
         paste0(
           length(unique(pc_missing_d$postcode)),
@@ -418,7 +429,7 @@ sdr_generate_choicesets <-
       futile.logger::flog.warn(msg)
       # now filter to remove postcodes that contain a -9999 distance
       df <- df %>%
-        dplyr::filter(!any(distance == -9999))
+        dplyr::filter(!any(.data$distance == -9999))
 
       futile.logger::flog.info(paste0("Rows: ", nrow(df)))
       futile.logger::flog.info(paste0("Unique postcodes: ", length(unique(df$postcode))))
@@ -426,14 +437,14 @@ sdr_generate_choicesets <-
 
     # get some choiceset stats
     avg_choiceset_size <- df %>%
-      dplyr::summarise(number = n()) %>%
-      dplyr::summarise(mean(number))
+      dplyr::summarise(number = dplyr::n()) %>%
+      dplyr::summarise(mean(.data$number))
     min_choiceset_size <- df %>%
-      dplyr::summarise(number = n()) %>%
-      dplyr::summarise(min(number))
+      dplyr::summarise(number = dplyr::n()) %>%
+      dplyr::summarise(min(.data$number))
     max_choiceset_size <- df %>%
-      dplyr::summarise(number = n()) %>%
-      dplyr::summarise(max(number))
+      dplyr::summarise(number = dplyr::n()) %>%
+      dplyr::summarise(max(.data$number))
 
     # info or warnings re choiceset dimensions
     if (avg_choiceset_size < 10 |

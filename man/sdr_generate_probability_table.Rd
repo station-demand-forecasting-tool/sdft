@@ -4,9 +4,11 @@
 \alias{sdr_generate_probability_table}
 \title{Creates and populates the probability table for a station}
 \usage{
-sdr_generate_probability_table(schema, df, tablesuffix)
+sdr_generate_probability_table(con, schema, df, tablesuffix)
 }
 \arguments{
+\item{con}{An RPostgres database connection object.}
+
 \item{schema}{Character. for the database schema name.}
 
 \item{df}{A dataframe containing the choicesets.}

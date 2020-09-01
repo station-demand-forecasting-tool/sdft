@@ -5,22 +5,28 @@
 #' the station choice model. The variables are drawn from the
 #' schema.proposed_stations and data.stations tables.
 #'
+#' @param con An RPostgres database connection object.
 #' @param schema Character. for the database schema name.
 #' @param df A dataframe containing the choicesets.
 #' @param tablesuffix Character, the suffix of the probability table - either
 #' crscode (isolation) or 'concurrent' (concurrent) is expected.
 #' @importFrom DBI Id
 #' @export
-sdr_generate_probability_table <- function(schema, df, tablesuffix) {
+sdr_generate_probability_table <-
+  function(con, schema, df, tablesuffix) {
+    futile.logger::flog.info(paste0(
+      "Creating probability table: ",
+      schema,
+      ".probability_",
+      tablesuffix
+    ))
 
-
-  futile.logger::flog.info(paste0("Creating probability table: ", schema, ".probability_",
-                   tablesuffix))
-
-  query <- paste0(
-    "create table ", schema, ".probability_",
-    tablesuffix,
-    "
+    query <- paste0(
+      "create table ",
+      schema,
+      ".probability_",
+      tablesuffix,
+      "
     (
     id            serial primary key,
     postcode      text,
@@ -38,33 +44,40 @@ sdr_generate_probability_table <- function(schema, df, tablesuffix) {
     cctv          int
     );
     "
-  )
-  sdr_dbExecute(con, query)
+    )
+    sdr_dbExecute(con, query)
 
-  # write the table for this crscode
-  RPostgres::dbWriteTable(
-    conn = con,
-    Id(schema = schema, table = paste0("probability_",
-                             tablesuffix)),
-    df,
-    append =
-      TRUE,
-    row.names = FALSE
-  )
+    # write the table for this crscode
+    RPostgres::dbWriteTable(
+      conn = con,
+      Id(
+        schema = schema,
+        table = paste0("probability_",
+                       tablesuffix)
+      ),
+      df,
+      append =
+        TRUE,
+      row.names = FALSE
+    )
 
-  # populate columns
-  query <- paste0(
-    "
+    # populate columns
+    query <- paste0(
+      "
     with tmp as (
     select crscode, frequency as frequency, carspaces, category, ticketmachine, busservices, cctv
     from data.stations
     union all
     select crscode, freq as frequency, carsp as carspaces, category, ticketm as ticketmachine, busint as busservices, cctv
-    from ", schema, ".proposed_stations
+    from ",
+      schema,
+      ".proposed_stations
     )
-    UPDATE ", schema, ".probability_",
-    tablesuffix,
-    " as a SET
+    UPDATE ",
+      schema,
+      ".probability_",
+      tablesuffix,
+      " as a SET
     sqr_dist = round(cast(sqrt(distance/1000) as numeric),4),
     ln_dfreq = round(cast(ln(b.frequency) as numeric),4),
     carspaces = b.carspaces,
@@ -77,6 +90,6 @@ sdr_generate_probability_table <- function(schema, df, tablesuffix) {
     FROM tmp as b
     WHERE a.crscode = b.crscode
     "
-  )
-  sdr_dbExecute(con, query)
-}
+    )
+    sdr_dbExecute(con, query)
+  }

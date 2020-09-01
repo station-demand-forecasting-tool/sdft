@@ -5,6 +5,7 @@
 \title{Creates a GeoJSON probabilistic catchment for a station}
 \usage{
 sdr_create_json_catchment(
+  con,
   schema,
   type,
   pcpoly = FALSE,
@@ -16,6 +17,8 @@ sdr_create_json_catchment(
 )
 }
 \arguments{
+\item{con}{An RPostgres database connection object.}
+
 \item{schema}{Character, the database schema name.}
 
 \item{type}{Character, must be either "proposed" or "abstraction". Indicates

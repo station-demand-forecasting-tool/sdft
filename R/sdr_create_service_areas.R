@@ -6,6 +6,8 @@
 #' in the specified database \code{schema}. The supplied \code{identifier} links
 #' the stations in the data frame and the database table. Uses parallel processing.
 #'
+#' @param con An RPostgres database connection object.
+#' @param out_path Path to the output folder for logging.
 #' @param schema Character, the database schema name.
 #' @param df A data frame with a column named "location"
 #' which has the easting and northing of the station location.
@@ -22,7 +24,9 @@
 #' ST_ConvexHull will try to approach before giving up or exiting. Default is 0.9.
 #' @export
 sdr_create_service_areas <-
-  function(schema,
+  function(con,
+           out_path,
+           schema,
            df,
            identifier,
            sa,
@@ -85,7 +89,6 @@ sdr_create_service_areas <-
       foreach::foreach(
         j = 1:total_stations,
         .noexport = "con",
-        .export = c("threshold", "out_path"),
         .packages = c("DBI", "RPostgres", "dplyr")
       ) %dopar%
         {
