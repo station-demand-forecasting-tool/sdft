@@ -1,5 +1,6 @@
-# stationdemandr 0.3.0
+# sdft 0.3.0
 
+- rename package to sdft
 - converted main.R script into `sdr_submit()` function that takes database connection details
 and directory path (for inputs and outputs) as arguments. User must set the database
 user password using `key_set()`.
