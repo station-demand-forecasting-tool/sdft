@@ -202,7 +202,7 @@ sdr_submit <-
       library(DBI)
       library(RPostgres)
       library(keyring)
-      library(stationdemandr)
+      library(sdft)
       drv <- dbDriver("Postgres")
       con <-
         dbConnect(
