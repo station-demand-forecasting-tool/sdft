@@ -39,6 +39,7 @@ getSQL <- function(filepath) {
 #' @export
 sdr_dbGetQuery <- function(con, query) {
   query <- gsub("\\s+", " ", stringr::str_trim(query))
+  futile.logger::flog.debug(paste0(query))
   RPostgres::dbGetQuery(con, query)
 }
 

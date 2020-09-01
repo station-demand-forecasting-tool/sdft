@@ -12,7 +12,7 @@
 #' @importFrom stats filter na.omit
 #' @importFrom utils read.csv write.csv
 #' @importFrom keyring key_get
-#' @importFrom DBI dbConnect dbDriver dbWriteTable
+#' @importFrom DBI dbConnect dbDriver dbWriteTable dbDisconnect
 #' @importFrom parallel detectCores makeCluster clusterEvalQ clusterExport stopCluster
 #' @importFrom rlang .data
 #' @import doParallel
@@ -162,6 +162,8 @@ sdr_submit <-
           }
         })
     )
+
+    flog.info("Log file initialised")
 
     # Setting up database connection-----------------------------------------------
 
@@ -318,7 +320,8 @@ sdr_submit <-
         threshold,
         "\n"
       ),
-      file = file.path(out_path, sdr.log, fsep = .Platform$file.sep)
+      file = file.path(log_file),
+      append = TRUE
     )
 
     flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
@@ -1312,7 +1315,6 @@ sdr_submit <-
     )
     sdr_dbExecute(con, query)
 
-
     # Abstraction analysis----------------------------------------------------------
 
     # Only process if abstraction analysis is required.
@@ -1757,6 +1759,8 @@ sdr_submit <-
 
     # Pulling outputs---------------------------------------------------------------
 
+    flog.info("Retrieving station forecast(s) from database")
+
     # stations
 
     query <-
@@ -1776,6 +1780,7 @@ from ",
     # abstraction analysis
 
     if (length(unique(na.omit(stations$abstract))) > 0) {
+      flog.info("Retrieving abstraction analysis from database")
       query <- paste0(
         "select proposed as proposed_id, proposed_name, at_risk as impacted_station, prwpop_before, prwpop_after, change, pc_change, entsexits as entries_exits, adj_trips, trips_change
 from ",
@@ -1803,6 +1808,8 @@ from ",
 
     # Station catchments
 
+    flog.info("Retrieving station catchment(s)")
+
     query <-
       paste0("select crscode, catchment from ",
              schema,
@@ -1823,6 +1830,7 @@ from ",
     # Abstraction catchments
 
     if (length(unique(na.omit(stations$abstract))) > 0) {
+      flog.info("Retrieving abstraction analysis catchments")
       query <- paste0(
         "select proposed, at_risk, catchment_before, catchment_after from ",
         schema,
@@ -1866,10 +1874,11 @@ from ",
 
     # Closing actions---------------------------------------------------------------
 
-    flog.info("tidying up")
+    flog.info("Tidying up")
 
     stopCluster(cl)
+    dbDisconnect(con)
 
-    flog.info("model finished")
+    flog.info("Job finished")
 
   }
