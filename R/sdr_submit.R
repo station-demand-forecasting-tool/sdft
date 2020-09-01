@@ -25,6 +25,15 @@ sdr_submit <-
            dbname = "dafni",
            dbuser = "postgres",
            dirpath = getwd()) {
+
+    # Check parameters
+    submit.coll <- makeAssertCollection()
+    assert_character(dbhost, any.missing = FALSE, add = submit.coll)
+    assert_character(dbname, any.missing = FALSE, add = submit.coll)
+    assert_character(dbuser, any.missing = FALSE, add = submit.coll)
+    assert_character(dirpath, any.missing = FALSE, add = submit.coll)
+    reportAssertions(submit.coll)
+
     # Configuration----------------------------------------------------------------
 
     # check and set directory path
