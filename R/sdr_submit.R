@@ -86,13 +86,6 @@ sdr_submit <-
 
     assert_logical(config$testing, null.ok = FALSE, add = config.coll)
 
-    # check for valid testing value
-
-    assert_choice(config$testing,
-                  c(TRUE, FALSE),
-                  null.ok = FALSE,
-                  add = config.coll)
-
     # check for valid logging threshold
 
     valid_threshold <-
