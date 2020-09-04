@@ -1,3 +1,9 @@
+#sdft 0.3.0.9000
+
+- rename `sdr_submit()` to `sdft_submit()`. Internal functions retain `sdr_` prefix (these
+are still exported for expert use only)
+- add PostgreSQL port option to `sdft_submit`()
+
 # sdft 0.3.0
 
 - rename package to sdft

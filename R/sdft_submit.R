@@ -2,6 +2,7 @@
 #'
 #' @param dbhost Character. IP address or hostname of the machine with the PostgreSQL
 #' database. Default is "localhost".
+#' @param dbport Integer. Port number used by the PostgreSQL server.
 #' @param dbname Character. Name of the PostgreSQL database. Default is "dafni".
 #' @param dbuser Character. Name of the PostgreSQL database user. Default is "postgres". Note
 #' that you need to set the password for this user using the \code{key_set()} function
@@ -20,8 +21,9 @@
 #' @import checkmate
 #' @export
 
-sdr_submit <-
+sdft_submit <-
   function(dbhost = "localhost",
+           dbport = 5432,
            dbname = "dafni",
            dbuser = "postgres",
            dirpath = getwd()) {
@@ -29,6 +31,7 @@ sdr_submit <-
     # Check parameters
     submit.coll <- makeAssertCollection()
     assert_character(dbhost, any.missing = FALSE, add = submit.coll)
+    assert_integerish(dbport, any.missing = FALSE, add = submit.coll)
     assert_character(dbname, any.missing = FALSE, add = submit.coll)
     assert_character(dbuser, any.missing = FALSE, add = submit.coll)
     assert_character(dirpath, any.missing = FALSE, add = submit.coll)
@@ -177,6 +180,7 @@ sdr_submit <-
                        RPostgres::Postgres(),
                        dbname = dbname,
                        host = dbhost,
+                       port = dbport,
                        user = dbuser,
                        password = key_get(dbuser)
                      ))
@@ -194,7 +198,7 @@ sdr_submit <-
     # Pass variables in this function's (sdr_main) environment to each worker in the cluster
     clusterExport(
       cl = cl,
-      varlist = c("dbname", "dbhost", "dbuser", "threshold", "out_path"),
+      varlist = c("dbname", "dbport", "dbhost", "dbuser", "threshold", "out_path"),
       envir = environment()
     )
 
@@ -208,6 +212,7 @@ sdr_submit <-
         dbConnect(
           RPostgres::Postgres(),
           host = dbhost,
+          port = dbport,
           user = dbuser,
           dbname = dbname,
           password = key_get(dbuser)
