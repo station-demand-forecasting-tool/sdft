@@ -6,10 +6,10 @@ are still exported for expert use only)
 
 ## Bug fixes
 
-- with latest version of pgRouting getting a dimensionality error when using st_collect node geoms prior to
-use st_concave hull to generate service areas in `sdr_create_service_areas`. All the points
-appear to be 2D, so not clear what is causing this. However, can be correct by using `ST_Force2D()` on the
-geom prior to the `st_collect()`.
+- with PostGIS v3.0 and pgRouting v3.1 a dimensionality error when using `st_collect()` on the
+node geoms prior to using `st_concavehull()` to generate service areas in `sdr_create_service_areas`.
+All the points appear to be 2D, so not clear what is causing this. However, it can be
+corrected by using `ST_Force2D()` on the geom prior to the `st_collect()`.
 
 # sdft 0.3.0
 
