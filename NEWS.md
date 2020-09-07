@@ -4,6 +4,13 @@
 are still exported for expert use only)
 - add PostgreSQL port option to `sdft_submit`()
 
+## Bug fixes
+
+- with latest version of pgRouting getting a dimensionality error when using st_collect node geoms prior to
+use st_concave hull to generate service areas in `sdr_create_service_areas`. All the points
+appear to be 2D, so not clear what is causing this. However, can be correct by using `ST_Force2D()` on the
+geom prior to the `st_collect()`.
+
 # sdft 0.3.0
 
 - rename package to sdft

@@ -136,7 +136,7 @@ sdr_create_service_areas <-
       left join openroads.vnodesneg_roadlinks as b on dd.node = -b.pid
       order by node
       ),
-      tmp2 as (select ST_ConcaveHull(ST_Collect(the_geom), ",
+      tmp2 as (select ST_ConcaveHull(ST_Collect(ST_Force2D(the_geom)), ",
             target,
             ") as geom from tmp)
       update ",
@@ -222,7 +222,7 @@ sdr_create_service_areas <-
       left join openroads.vnodesneg_roadlinks as b on dd.node = -b.pid
       order by node
       ),
-      tmp2 as (select ST_ConcaveHull(ST_Collect(the_geom), 1) as geom from tmp)
+      tmp2 as (select ST_ConcaveHull(ST_Collect(ST_Force2D(the_geom)), 1) as geom from tmp)
       update ",
               paste0(schema, '.', table),
               " set ",
