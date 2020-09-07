@@ -1,4 +1,4 @@
-#sdft 0.3.0.9000
+# sdft 0.3.0.9000
 
 - rename `sdr_submit()` to `sdft_submit()`. Internal functions retain `sdr_` prefix (these
 are still exported for expert use only)
