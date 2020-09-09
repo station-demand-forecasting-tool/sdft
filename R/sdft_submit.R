@@ -128,7 +128,13 @@ sdft_submit <-
 
     # create output directory if it doesn't already exist
 
-    out_path <-
+    if (!dir.exists(file.path(dirpath, "output", fsep = .Platform$file.sep))) {
+      dir.create(file.path(dirpath, "output", fsep = .Platform$file.sep))
+    }
+	
+	# create job output folder
+	
+	out_path <-
       (file.path(dirpath, "output", config$job_id, fsep = .Platform$file.sep))
 
     if (!dir.exists(out_path)) {
