@@ -109,7 +109,7 @@ sdft_submit <-
 
     if (isFALSE(assert_integer(
       config$cores,
-      lower = 4,
+      lower = 2,
       upper = (cores - 2),
       null.ok = FALSE,
       add = config.coll
