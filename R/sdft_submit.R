@@ -131,9 +131,9 @@ sdft_submit <-
     if (!dir.exists(file.path(dirpath, "output", fsep = .Platform$file.sep))) {
       dir.create(file.path(dirpath, "output", fsep = .Platform$file.sep))
     }
-	
+
 	# create job output folder
-	
+
 	out_path <-
       (file.path(dirpath, "output", config$job_id, fsep = .Platform$file.sep))
 
@@ -169,7 +169,7 @@ sdft_submit <-
         quote({
           if (exists("last.warning", baseenv()) && !is.null(last.warning)) {
             txt <- paste0(names(last.warning), collapse = " ")
-            flog.warn(txt)
+            futile.logger::flog.warn(txt)
           }
         })
     )
@@ -939,7 +939,7 @@ sdft_submit <-
 
       query <- paste0("
                   update data.stations set service_area_60mins =
-                  service_area_60mins_5mins
+                  service_area_5mins
                   ")
       sdr_dbExecute(con, query)
     } else {
