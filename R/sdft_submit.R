@@ -109,14 +109,13 @@ sdft_submit <-
 
     if (isFALSE(assert_integer(
       config$cores,
-      upper = (cores - 2),
+      lower = 4,
       null.ok = FALSE,
       add = config.coll
     ))) {
       config.coll$push(
         paste(
-          "At least 2 cores should be reserved
-                   for the OS. This system has",
+          "At least 4 cores are required. This system has",
           cores,
           " cores"
         )
@@ -197,8 +196,8 @@ sdft_submit <-
     # This is currently used in the sdr_create_service_areas() and
     # sdr_generate_choicesets() functions, in a foreach loop.
 
-    # Number of clusters from config file
-    cl <- makeCluster(config$cores)
+    # Number of clusters from config file (reserve 2 for OS)
+    cl <- makeCluster(config$cores - 2)
     registerDoParallel(cl)
     # Pass variables in this function's (sdr_main) environment to each worker in the cluster
     clusterExport(
