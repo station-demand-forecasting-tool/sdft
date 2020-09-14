@@ -1789,7 +1789,8 @@ from ",
     out_stations <- sdr_dbGetQuery(con, query)
     write.csv(
       out_stations,
-      file.path(out_path, "station_forecast.csv", fsep = .Platform$file.sep)
+      file.path(out_path, "station_forecast.csv", fsep = .Platform$file.sep),
+      row.names = FALSE
     )
 
     # abstraction analysis
@@ -1805,7 +1806,8 @@ from ",
       out_abstract <- sdr_dbGetQuery(con, query)
       write.csv(
         out_abstract,
-        file.path(out_path, "abstraction_analysis.csv", fsep = .Platform$file.sep)
+        file.path(out_path, "abstraction_analysis.csv", fsep = .Platform$file.sep),
+        row.names = FALSE
       )
     }
 
@@ -1818,7 +1820,8 @@ from ",
     out_exogenous <- sdr_dbGetQuery(con, query)
     write.csv(
       out_exogenous,
-      file.path(out_path, "exogenous_inputs.csv", fsep = .Platform$file.sep)
+      file.path(out_path, "exogenous_inputs.csv", fsep = .Platform$file.sep),
+      row.names = FALSE
     )
 
     # Station catchments
