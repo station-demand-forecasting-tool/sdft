@@ -14,8 +14,8 @@ A [conference paper](https://eprints.soton.ac.uk/432493/) with more details abou
 
 While this R package controls the tool, ***it is not standalone***. Most of the heavy lifting takes place in a PostgreSQL database that requires setting up with data tables and additional wrapper functions for pgRouting.
 
-It is planned to provide a [Docker container](https://github.com/station-demand-forecasting-tool/sdft-docker) for the database component to enable easy deployment of the tool.
+A [Docker implementation](https://github.com/station-demand-forecasting-tool/sdft-docker) is available. 
 
 ## Tool documentation
 
-[https://www.stationdemand.org.uk](https://www.stationdemand.org.uk)
+[https://www.stationdemand.org.uk](https://www.stationdemand.org.uk) (currently a work in progress).
