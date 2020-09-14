@@ -103,20 +103,19 @@ sdft_submit <-
                   null.ok = FALSE,
                   add = config.coll)
 
-    # check for valid cores - must be at least 4 and leave OS with at least 2
+    # check for valid cores - must leave OS with at least 2
 
     cores <- detectCores()
 
     if (isFALSE(assert_integer(
       config$cores,
-      lower = 2,
       upper = (cores - 2),
       null.ok = FALSE,
       add = config.coll
     ))) {
       config.coll$push(
         paste(
-          "Minimum processor cores is 4 with at least 2 cores preserved
+          "At least 2 cores should be reserved
                    for the OS. This system has",
           cores,
           " cores"
