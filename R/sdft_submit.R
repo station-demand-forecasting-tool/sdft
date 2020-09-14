@@ -27,7 +27,6 @@ sdft_submit <-
            dbname = "dafni",
            dbuser = "postgres",
            dirpath = getwd()) {
-
     # Check parameters
     submit.coll <- makeAssertCollection()
     assert_character(dbhost, any.missing = FALSE, add = submit.coll)
@@ -44,7 +43,8 @@ sdft_submit <-
     assert_directory_exists(file.path(dirpath, "input", fsep = .Platform$file.sep),
                             access = "w")
 
-    in_path <- (file.path(dirpath, "input", fsep = .Platform$file.sep))
+    in_path <-
+      (file.path(dirpath, "input", fsep = .Platform$file.sep))
 
     # Read config file
     config <-
@@ -107,7 +107,7 @@ sdft_submit <-
     # reset to actual cores if too high.
 
     if (config$cores > detectCores()) {
-     config$cores <- detectCores()
+      config$cores <- detectCores()
     }
 
 
@@ -117,13 +117,9 @@ sdft_submit <-
       null.ok = FALSE,
       add = config.coll
     ))) {
-      config.coll$push(
-        paste(
-          "At least 4 cores are required. This system has",
-          cores,
-          " cores"
-        )
-      )
+      config.coll$push(paste("At least 4 cores are required. This system has",
+                             cores,
+                             " cores"))
     }
 
     reportAssertions(config.coll)
@@ -134,9 +130,9 @@ sdft_submit <-
       dir.create(file.path(dirpath, "output", fsep = .Platform$file.sep))
     }
 
-	# create job output folder
+    # create job output folder
 
-	out_path <-
+    out_path <-
       (file.path(dirpath, "output", config$job_id, fsep = .Platform$file.sep))
 
     if (!dir.exists(out_path)) {
@@ -206,7 +202,14 @@ sdft_submit <-
     # Pass variables in this function's (sdr_main) environment to each worker in the cluster
     clusterExport(
       cl = cl,
-      varlist = c("dbname", "dbport", "dbhost", "dbuser", "threshold", "out_path"),
+      varlist = c(
+        "dbname",
+        "dbport",
+        "dbhost",
+        "dbuser",
+        "threshold",
+        "out_path"
+      ),
       envir = environment()
     )
 
@@ -1071,7 +1074,8 @@ sdft_submit <-
           # copy firstsets
           choicesets <- firstsets
           # update all occurrences of first_crs to this crscode
-          choicesets$crscode[choicesets$crscode == first_crs] <- crscode
+          choicesets$crscode[choicesets$crscode == first_crs] <-
+            crscode
           # create probability table
           sdr_generate_probability_table(con, schema, choicesets, tolower(crscode))
         }
@@ -1527,7 +1531,8 @@ sdft_submit <-
                                                 "_before_abs_concurrent"))
           # Make frequency group adjustments
           # Only need to look at first row as must be same for all stations
-          if (isTRUE(have_freqgroups) & (!is.na(stations$freqgrp[1]))) {
+          if (isTRUE(have_freqgroups) &
+              (!is.na(stations$freqgrp[1]))) {
             df <-
               data.frame(fgrp = freqgroups[freqgroups$group_id ==
                                              stations$freqgrp[1], "group_crs"],
@@ -1695,7 +1700,8 @@ sdft_submit <-
           # Only a single identical frequency group for all stations under
           # concurrent treatment. This is checked during pre-flight. So we just use
           # the first row
-          if (isTRUE(have_freqgroups) & (!is.na(stations$freqgrp[1]))) {
+          if (isTRUE(have_freqgroups) &
+              (!is.na(stations$freqgrp[1]))) {
             df <-
               data.frame(fgrp = freqgroups[freqgroups$group_id ==
                                              stations$freqgrp[1], "group_crs"],
