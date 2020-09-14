@@ -103,9 +103,13 @@ sdft_submit <-
                   null.ok = FALSE,
                   add = config.coll)
 
-    # check for valid cores - must leave OS with at least 2
+    # check for valid cores - minimum of 4
+    # reset to actual cores if too high.
 
-    cores <- detectCores()
+    if (config$cores > detectCores()) {
+     config$cores <- detectCores()
+    }
+
 
     if (isFALSE(assert_integer(
       config$cores,
