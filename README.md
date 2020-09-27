@@ -18,4 +18,4 @@ A [Docker implementation](https://github.com/station-demand-forecasting-tool/sdf
 
 ## Tool documentation
 
-[https://www.stationdemand.org.uk](https://www.stationdemand.org.uk) (currently a work in progress).
+[https://www.stationdemand.org.uk](https://www.stationdemand.org.uk).
