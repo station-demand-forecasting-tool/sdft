@@ -1840,7 +1840,7 @@ from ",
              ".proposed_stations")
     out_catchments <- sdr_dbGetQuery(con, query)
 
-    for (i in 1:nrow(out_catchments$crscode)) {
+    for (i in 1:nrow(out_catchments)) {
       catchment <- out_catchments$catchment[i]
       crscode <- out_catchments$crscode[i]
       write(
