@@ -1840,9 +1840,11 @@ from ",
              ".proposed_stations")
     out_catchments <- sdr_dbGetQuery(con, query)
 
-    for (crscode in out_catchments$crscode) {
+    for (i in 1:nrow(out_catchments$crscode)) {
+      catchment <- out_catchments$catchment[i]
+      crscode <- out_catchments$crscode[i]
       write(
-        out_catchments$catchment,
+        catchment,
         file.path(
           out_path,
           paste0(tolower(crscode), "_catchment.geojson"),
@@ -1866,7 +1868,7 @@ from ",
         at_risk <- out_abscatchments$at_risk[i]
         proposed <- out_abscatchments$proposed[i]
         write(
-          out_abscatchments$catchment_before,
+          out_abscatchments$catchment_before[i],
           file.path(
             out_path,
             paste0(
@@ -1879,7 +1881,7 @@ from ",
           )
         )
         write(
-          out_abscatchments$catchment_after,
+          out_abscatchments$catchment_after[i],
           file.path(
             out_path,
             paste0(
