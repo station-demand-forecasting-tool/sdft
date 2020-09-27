@@ -117,8 +117,8 @@ sdft_submit <-
       null.ok = FALSE,
       add = config.coll
     ))) {
-      config.coll$push(paste("At least 4 cores are required. This system has",
-                             cores,
+      config.coll$push(paste0("At least 4 cores are required. This system has ",
+                             detectCores(),
                              " cores"))
     }
 
@@ -1862,13 +1862,15 @@ from ",
       )
       out_abscatchments <- sdr_dbGetQuery(con, query)
 
-      for (crscode in out_abscatchments$proposed) {
+      for (i in 1:nrow(out_abscatchments)) {
+        at_risk <- out_abscatchments$at_risk[i]
+        proposed <- out_abscatchments$proposed[i]
         write(
           out_abscatchments$catchment_before,
           file.path(
             out_path,
             paste0(
-              tolower(crscode),
+              tolower(proposed),
               "_",
               tolower(at_risk),
               "_catchment_before.geojson"
@@ -1876,15 +1878,12 @@ from ",
             fsep = .Platform$file.sep
           )
         )
-      }
-
-      for (crscode in out_abscatchments$proposed) {
         write(
           out_abscatchments$catchment_after,
           file.path(
             out_path,
             paste0(
-              tolower(crscode),
+              tolower(proposed),
               "_",
               tolower(at_risk),
               "_catchment_after.geojson"

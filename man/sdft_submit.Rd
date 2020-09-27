@@ -16,6 +16,8 @@ sdft_submit(
 \item{dbhost}{Character. IP address or hostname of the machine with the PostgreSQL
 database. Default is "localhost".}
 
+\item{dbport}{Integer. Port number used by the PostgreSQL server.}
+
 \item{dbname}{Character. Name of the PostgreSQL database. Default is "dafni".}
 
 \item{dbuser}{Character. Name of the PostgreSQL database user. Default is "postgres". Note
