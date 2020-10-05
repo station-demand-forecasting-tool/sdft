@@ -7,7 +7,7 @@ cache: packages
 addons:
   apt:
     packages:
-      - libssl-dev
-	    - libsodium-dev
-	    - libpq-dev
-	    - libsecret-1-dev
+    - libssl-dev
+	  - libsodium-dev
+	  - libpq-dev
+	  - libsecret-1-dev
