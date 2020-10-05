@@ -1,10 +1,9 @@
 # Station Demand Forecasting Tool
 
 <!-- badges: start -->
-[![Build Status](https://travis-ci.org/marcusyoung/otpr.svg?branch=master)](https://travis-ci.org/marcusyoung/otpr)
+[![Travis build status](https://travis-ci.com/station-demand-forecasting-tool/sdft.svg?branch=master)](https://travis-ci.com/station-demand-forecasting-tool/sdft)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4065250.svg)](https://doi.org/10.5281/zenodo.4066925)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![Travis build status](https://travis-ci.com/station-demand-forecasting-tool/sdft.svg?branch=master)](https://travis-ci.com/station-demand-forecasting-tool/sdft)
 <!-- badges: end -->
 
 
