@@ -1,0 +1,10 @@
+citHeader("To cite the sdft package in publications, please use the following. You can obtain the DOI for a specific version from: https://zenodo.org/record/4066925")
+
+citEntry(entry="Manual",
+         author = c(
+         person("Marcus Young"), person("Simon Blainey")),
+         title = "{sdft: The Station Demand Forecasting Tool}",
+         year = 2020,
+         note = "{R package version 0.3.0}",
+         doi = "{10.5281/zenodo.4066925}",
+         textVersion = paste("Marcus Young and Simon Blainey (2020).", "sdft: The Station Demand Forecasting Tool.", "R package version 0.3.0.", "https://doi.org/10.5281/zenodo.4066925"))

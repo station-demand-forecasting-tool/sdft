@@ -1,5 +1,13 @@
 # Station Demand Forecasting Tool
 
+<!-- badges: start -->
+[![Build Status](https://travis-ci.org/marcusyoung/otpr.svg?branch=master)](https://travis-ci.org/marcusyoung/otpr)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4065250.svg)](https://doi.org/10.5281/zenodo.4066925)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![Travis build status](https://travis-ci.com/station-demand-forecasting-tool/sdft.svg?branch=master)](https://travis-ci.com/station-demand-forecasting-tool/sdft)
+<!-- badges: end -->
+
+
 This is the R package for the Station Demand Forecasting Tool.
 
 ## About the tool
@@ -19,3 +27,27 @@ A [Docker implementation](https://github.com/station-demand-forecasting-tool/sdf
 ## Tool documentation
 
 [https://www.stationdemand.org.uk](https://www.stationdemand.org.uk).
+
+## How to cite
+
+Please cite **sdft** if you use it. Get citation information using: `citation(package = 'sdft')`:
+
+```
+To cite the sdft package in publications, please use the following. You can obtain
+the DOI for a specific version from: https://zenodo.org/record/4066925
+
+  Marcus Young and Simon Blainey (2020). sdft: The Station Demand Forecasting Tool.
+  R package version 0.3.0. https://doi.org/10.5281/zenodo.4066925
+
+A BibTeX entry for LaTeX users is
+
+  @Manual{,
+    author = {{Marcus Young} and {Simon Blainey}},
+    title = {{sdft: The Station Demand Forecasting Tool}},
+    year = {2020},
+    note = {{R package version 0.3.0}},
+    doi = {{10.5281/zenodo.4066925}},
+  }
+
+```
+
