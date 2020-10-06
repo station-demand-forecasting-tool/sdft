@@ -37,7 +37,7 @@ To cite the sdft package in publications, please use the following. You can obta
 the DOI for a specific version from: https://zenodo.org/record/4066925
 
   Marcus Young and Simon Blainey (2020). sdft: The Station Demand Forecasting Tool.
-  R package version 0.3.0. https://doi.org/10.5281/zenodo.4066925
+  R package version 0.3.1. https://doi.org/10.5281/zenodo.4066925
 
 A BibTeX entry for LaTeX users is
 
@@ -45,7 +45,7 @@ A BibTeX entry for LaTeX users is
     author = {{Marcus Young} and {Simon Blainey}},
     title = {{sdft: The Station Demand Forecasting Tool}},
     year = {2020},
-    note = {{R package version 0.3.0}},
+    note = {{R package version 0.3.1}},
     doi = {{10.5281/zenodo.4066925}},
   }
 
