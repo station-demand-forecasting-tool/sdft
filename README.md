@@ -2,7 +2,7 @@
 
 <!-- badges:  start -->
 [![Build Status](https://travis-ci.org/station-demand-forecasting-tool/sdft.svg?branch=master)](https://travis-ci.org/station-demand-forecasting-tool/sdft)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4065250.svg)](https://doi.org/10.5281/zenodo.4066925)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4066924.svg)](https://doi.org/10.5281/zenodo.4066924)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 <!-- badges:  end -->
 
@@ -32,10 +32,10 @@ Please cite **sdft** if you use it. Get citation information using: `citation(pa
 
 ```
 To cite the sdft package in publications, please use the following. You can obtain
-the DOI for a specific version from: https://zenodo.org/record/4066925
+the DOI for a specific version from: https://zenodo.org/record/4066924
 
   Marcus Young and Simon Blainey (2020). sdft: The Station Demand Forecasting Tool.
-  R package version 0.3.1. https://doi.org/10.5281/zenodo.4066925
+  R package version 0.3.1. https://doi.org/10.5281/zenodo.4066924
 
 A BibTeX entry for LaTeX users is
 
@@ -44,7 +44,7 @@ A BibTeX entry for LaTeX users is
     title = {{sdft: The Station Demand Forecasting Tool}},
     year = {2020},
     note = {{R package version 0.3.1}},
-    doi = {{10.5281/zenodo.4066925}},
+    doi = {{10.5281/zenodo.4066924}},
   }
 
 ```
