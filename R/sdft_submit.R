@@ -111,11 +111,10 @@ sdft_submit <-
     }
 
 
-    if (isFALSE(assert_integer(
+    if (isFALSE(testInteger(
       config$cores,
       lower = 4,
-      null.ok = FALSE,
-      add = config.coll
+      null.ok = FALSE
     ))) {
       config.coll$push(paste0("At least 4 cores are required. This system has ",
                              detectCores(),
