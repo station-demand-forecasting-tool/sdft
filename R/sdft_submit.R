@@ -195,6 +195,8 @@ sdft_submit <-
     # This is currently used in the sdr_create_service_areas() and
     # sdr_generate_choicesets() functions, in a foreach loop.
 
+    passwd <- key_get("postgres")
+
     # Number of clusters from config file (reserve 2 for OS)
     cl <- makeCluster(config$cores - 2)
     registerDoParallel(cl)
@@ -202,6 +204,7 @@ sdft_submit <-
     clusterExport(
       cl = cl,
       varlist = c(
+        "passwd",
         "dbname",
         "dbport",
         "dbhost",
@@ -225,7 +228,7 @@ sdft_submit <-
           port = dbport,
           user = dbuser,
           dbname = dbname,
-          password = key_get(dbuser)
+          password = passwd
         )
       NULL
     }))

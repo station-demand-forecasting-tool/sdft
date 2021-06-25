@@ -1,3 +1,10 @@
+# sdft 0.3.1.9000
+
+## Bug Fixes
+
+- issue with passing database password to clusters
+- issue with available cores test fixed.
+
 # sdft 0.3.1
 
 - rename `sdr_submit()` to `sdft_submit()`. Internal functions retain `sdr_` prefix (these
