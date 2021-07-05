@@ -1,9 +1,9 @@
-# sdft 0.3.1.9000
+# sdft 0.3.2
 
 ## Bug Fixes
 
 - issue with passing database password to clusters
-- issue with available cores test fixed.
+- issue with available cores test.
 
 # sdft 0.3.1
 
