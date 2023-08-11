@@ -35,6 +35,8 @@ queue_processor <- function() {
 
     if (!is.na(job_id)) {
 
+      # update status to running (1)
+
       dbExecute(con,
                 "
                     update jobs.job_queue
@@ -43,9 +45,60 @@ queue_processor <- function() {
                       ",
                 params = list(job_id))
 
-      write.csv2(config, file = "C:/Temp/sdft/input/config.csv", row.names = FALSE, quote = FALSE)
+      job_directory <- paste0("C:/Temp/sdft/jobs/", job_id)
 
-      sdft::sdft_submit(dbhost = "localhost", dbname = 'sdft', dbport = 5444, dirpath = "C:/Temp/sdft")
+      if (!dir.exists(job_directory)){
+        dir.create(job_directory)
+        dir.create(paste0(job_directory, "/input"))
+      }
+
+
+      # get stations data
+
+      rs <- dbSendQuery(con,
+                        "
+                    SELECT *
+                    FROM jobs.job_stations
+                    WHERE job_id = $1
+                      ", params = list(job_id))
+
+      stations <- dbFetch(rs)
+      dbClearResult(rs)
+
+      # get freqgroups data
+
+      rs <- dbSendQuery(con,
+                        "
+                    SELECT group_id, group_crs
+                    FROM jobs.job_freqgroups
+                    WHERE job_id = $1
+                      ", params = list(job_id))
+
+      freqgroups <- dbFetch(rs)
+      dbClearResult(rs)
+
+      # get exogenous data
+
+      rs <- dbSendQuery(con,
+                        "
+                    SELECT type, number, centroid
+                    FROM jobs.job_exogenous
+                    WHERE job_id = $1
+                      ", params = list(job_id))
+
+      exogenous <- dbFetch(rs)
+      dbClearResult(rs)
+
+
+      write.csv2(config, file = paste0("C:/Temp/sdft/jobs/", job_id, "/input/config.csv"), row.names = FALSE, quote = FALSE)
+
+      write.csv2(stations[,2:19], file = paste0("C:/Temp/sdft/jobs/", job_id, "/input/stations.csv"), row.names = FALSE, quote = FALSE, na = "")
+
+      write.csv2(freqgroups, file = paste0("C:/Temp/sdft/jobs/", job_id, "/input/freqgroups.csv"), row.names = FALSE, quote = FALSE, na = "")
+
+      write.csv2(exogenous, file = paste0("C:/Temp/sdft/jobs/", job_id, "/input/exogenous.csv"), row.names = FALSE, quote = FALSE, na = "")
+
+      sdft::sdft_submit(dbhost = "localhost", dbname = 'sdft', dbport = 5444, dirpath = job_directory)
 
       dbExecute(con,
                 "
@@ -74,7 +127,7 @@ queue_processor <- function() {
 }
 
 
-stdout_1 <- paste0("C:/Temp/sdft/queue_log_", Sys.Date())
+stdout_1 <- paste0("C:/Temp/sdft/jobs/queue_log_", Sys.Date())
 rp <- callr::r_bg(queue_processor, stdout = stdout_1, stderr = stdout_1)
 
 # paste(readLines(con = stdout_1), collapse = "\n")
