@@ -9,8 +9,8 @@ queue_processor <- function() {
       dbname = 'sdft',
       host = 'localhost',
       port = 5444,
-      user = "postgres",
-      password = keyring::key_get("postgres")
+      user = "sdft",
+      password = Sys.getenv('SDFT_PG_PASSWORD')
     )
   on.exit(dbDisconnect(con))
 
