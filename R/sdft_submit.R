@@ -195,7 +195,7 @@ sdft_submit <-
     # This is currently used in the sdr_create_service_areas() and
     # sdr_generate_choicesets() functions, in a foreach loop.
 
-    passwd <- key_get("postgres")
+    passwd <- Sys.getenv('SDFT_PG_PASSWORD')
 
     # Number of clusters from config file (reserve 2 for OS)
     cl <- makeCluster(config$cores - 2)
