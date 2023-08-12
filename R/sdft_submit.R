@@ -185,7 +185,7 @@ sdft_submit <-
                        host = dbhost,
                        port = dbport,
                        user = dbuser,
-                       password = key_get(dbuser)
+                       password = Sys.getenv('SDFT_PG_PASSWORD')
                      ))
     if (class(checkdb) == "try-error") {
       stop("Database connection has not been established")
