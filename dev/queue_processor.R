@@ -2,6 +2,7 @@ queue_processor <- function() {
   library(DBI)
   library(keyring)
   library(sdft)
+  library(mailR)
 
   con <-
     dbConnect(
@@ -64,6 +65,8 @@ queue_processor <- function() {
 
         stations <- dbFetch(rs)
         dbClearResult(rs)
+
+        ## need to check that we have data for stations
 
         # get freqgroups data
 
@@ -133,6 +136,7 @@ queue_processor <- function() {
 
         sdft::sdft_submit(
           dbhost = "localhost",
+          dbuser = "sdft",
           dbname = 'sdft',
           dbport = 5444,
           dirpath = job_directory
@@ -145,6 +149,19 @@ queue_processor <- function() {
                     where job_id  = $1
                       ",
                   params = list(job_id))
+
+        # send results by email
+
+        # mailR::send.mail(from = "m.a.young@soton.ac.uk",
+        #           to = c("marcus@graspit.co.uk"),
+        #           #cc = c("CC Recipient <cc.recipient@gmail.com>"),
+        #           #bcc = c("BCC Recipient <bcc.recipient@gmail.com>"),
+        #           subject = "Subject of the email",
+        #           body = "Body of the email",
+        #           attach.files = c("/home/may1y17/v0.3.2.zip"),
+        #           smtp = list(host.name = "smtp.soton.ac.uk", port = 25),
+        #           authenticate = FALSE,
+        #           send = TRUE)
 
       }
     },

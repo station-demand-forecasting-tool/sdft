@@ -68,9 +68,9 @@ sdft_submit <-
 
     # Check for valid job_id.
     # Check begins with a-z, then a-z or 0-9 or _ for an additional 19 matches
-    # up to max 20 characters. Valid postgreSQL schema format.
+    # up to max 30 characters. Valid postgreSQL schema format.
     if (isFALSE(assertTRUE(
-      grepl("^[a-z][a-z0-9_]{1,19}$", config$job_id, ignore.case = FALSE),
+      grepl("^[a-z][a-z0-9_]{1,29}$", config$job_id, ignore.case = FALSE),
       na.ok = FALSE,
       add = config.coll
     ))) {
@@ -425,24 +425,24 @@ sdft_submit <-
 
     # station and access coordinates must be six digit strings 0-9
     if (isFALSE(all(vapply(stations$stn_east, function(x)
-      grepl("^[0-9]{6}$", x), logical(1))))) {
+      grepl("^[0-9]{5,6}$", x), logical(1))))) {
       preflight_failed <- TRUE
-      flog.error("Station eastings must be 6 character strings containing 0-9 only")
+      flog.error("Station eastings must be 5 or 6 character strings containing 0-9 only")
     }
     if (isFALSE(all(vapply(stations$stn_north, function(x)
-      grepl("^[0-9]{6}$", x), logical(1))))) {
+      grepl("^[0-9]{5,6}$", x), logical(1))))) {
       preflight_failed <- TRUE
-      flog.error("Station northings must be 6 character strings containing 0-9 only")
+      flog.error("Station northings must be 5 or 6 character strings containing 0-9 only")
     }
     if (isFALSE(all(vapply(stations$acc_east, function(x)
-      grepl("^[0-9]{6}$", x), logical(1))))) {
+      grepl("^[0-9]{5,6}$", x), logical(1))))) {
       preflight_failed <- TRUE
-      flog.error("Access eastings must be 6 character strings containing 0-9 only")
+      flog.error("Access eastings must be 5 or 6 character strings containing 0-9 only")
     }
     if (isFALSE(all(vapply(stations$acc_north, function(x)
-      grepl("^[0-9]{6}$", x), logical(1))))) {
+      grepl("^[0-9]{5,6}$", x), logical(1))))) {
       preflight_failed <- TRUE
-      flog.error("Access northings must be 6 character strings containing 0-9 only")
+      flog.error("Access northings must be 5 or 6 character strings containing 0-9 only")
     }
 
     # check if access location coordinates fall within GB extent

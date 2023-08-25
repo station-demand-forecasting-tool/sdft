@@ -4,10 +4,10 @@ CREATE SCHEMA jobs;
 -- job queue (used to create config.csv)
 
 CREATE TABLE jobs.job_queue (
-	job_id VARCHAR ( 20 ) PRIMARY KEY,
+	job_id VARCHAR ( 30 ) PRIMARY KEY,
 	timestamp timestamp default current_timestamp,
-	username text UNIQUE NOT NULL,
-	email text UNIQUE NOT NULL,
+	username text NOT NULL,
+	email text NOT NULL,
 	method text CONSTRAINT check_method CHECK (method = 'isolation' OR method = 'concurrent'),
 	testing text CONSTRAINT check_testing CHECK (testing IN ('true', 'false')),
 	loglevel text CONSTRAINT check_loglevel CHECK (loglevel IN ('DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL')),
@@ -23,7 +23,7 @@ values
 -- job stations
 
 create table jobs.job_stations (
-	job_id VARCHAR ( 20 ),
+	job_id VARCHAR ( 30 ),
 	id VARCHAR ( 20 ),
 	name VARCHAR ( 20 ),
 	region text,
@@ -73,7 +73,7 @@ insert into jobs.job_stations(
 -- frequency groups
 
 create table jobs.job_freqgroups (
-	job_id VARCHAR ( 20 ),
+	job_id VARCHAR ( 30 ),
 	group_id VARCHAR ( 20 ),
 	group_crs text,
 	PRIMARY KEY (job_id, group_id)
@@ -84,7 +84,7 @@ create table jobs.job_freqgroups (
 
 create table jobs.job_exogenous (
 	id SERIAL PRIMARY KEY,
-	job_id VARCHAR ( 20 ),
+	job_id VARCHAR ( 30 ),
 	type text CONSTRAINT check_group_crs CHECK (type IN ('population', 'houses', 'jobs')),
 	number int2,
 	centroid text
