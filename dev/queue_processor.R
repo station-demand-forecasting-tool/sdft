@@ -1,16 +1,18 @@
-queue_processor <- function() {
+#!/usr/bin/Rscript
+#queue_processor <- function() {
   library(DBI)
-  library(keyring)
+  #library(keyring)
   library(sdft)
   library(mailR)
+  library(zip)
 
   con <-
     dbConnect(
       RPostgres::Postgres(),
-      dbname = 'sdft',
-      host = 'localhost',
-      port = 5444,
-      user = "sdft",
+      dbname = Sys.getenv('SDFT_PG_DB'),
+      host = Sys.getenv('SDFT_PG_HOST'),
+      port = Sys.getenv('SDFT_PG_PORT'),
+      user = Sys.getenv('SDFT_PG_USER'),
       password = Sys.getenv('SDFT_PG_PASSWORD')
     )
   on.exit(dbDisconnect(con))
@@ -22,7 +24,7 @@ queue_processor <- function() {
       rs <- dbSendQuery(
         con,
         "
-                    SELECT job_id, method, testing, loglevel, cores
+                    SELECT job_id, email, method, testing, loglevel, cores
                     FROM jobs.job_queue
                     WHERE status = 0
                     ORDER BY timestamp asc
@@ -31,8 +33,12 @@ queue_processor <- function() {
       )
 
       config <- dbFetch(rs)
-      job_id <- config[1, 1]
       dbClearResult(rs)
+
+      job_id <- config[1, 1]
+      job_email <- config[1, 2]
+      # discard email as not used for job config
+      config$email <- NULL
 
       if (!is.na(job_id)) {
         # update status to running (1)
@@ -45,7 +51,7 @@ queue_processor <- function() {
                       ",
                   params = list(job_id))
 
-        job_directory <- paste0("C:/Temp/sdft/jobs/", job_id)
+        job_directory <- paste0("/srv/sdft/jobs/", job_id)
 
         if (!dir.exists(job_directory)) {
           dir.create(job_directory)
@@ -101,14 +107,14 @@ queue_processor <- function() {
 
         write.csv2(
           config,
-          file = paste0("C:/Temp/sdft/jobs/", job_id, "/input/config.csv"),
+          file = paste0("/srv/sdft/jobs/", job_id, "/input/config.csv"),
           row.names = FALSE,
           quote = FALSE
         )
 
         write.csv2(
           stations[, 2:19],
-          file = paste0("C:/Temp/sdft/jobs/", job_id, "/input/stations.csv"),
+          file = paste0("/srv/sdft/jobs/", job_id, "/input/stations.csv"),
           row.names = FALSE,
           quote = FALSE,
           na = ""
@@ -117,7 +123,7 @@ queue_processor <- function() {
         write.csv2(
           freqgroups,
           file = paste0(
-            "C:/Temp/sdft/jobs/",
+            "/srv/sdft/jobs/",
             job_id,
             "/input/freqgroups.csv"
           ),
@@ -128,7 +134,7 @@ queue_processor <- function() {
 
         write.csv2(
           exogenous,
-          file = paste0("C:/Temp/sdft/jobs/", job_id, "/input/exogenous.csv"),
+          file = paste0("/srv/sdft/jobs/", job_id, "/input/exogenous.csv"),
           row.names = FALSE,
           quote = FALSE,
           na = ""
@@ -138,7 +144,7 @@ queue_processor <- function() {
           dbhost = "localhost",
           dbuser = "sdft",
           dbname = 'sdft',
-          dbport = 5444,
+          dbport = 5432,
           dirpath = job_directory
         )
 
@@ -152,16 +158,26 @@ queue_processor <- function() {
 
         # send results by email
 
-        # mailR::send.mail(from = "m.a.young@soton.ac.uk",
-        #           to = c("marcus@graspit.co.uk"),
-        #           #cc = c("CC Recipient <cc.recipient@gmail.com>"),
-        #           #bcc = c("BCC Recipient <bcc.recipient@gmail.com>"),
-        #           subject = "Subject of the email",
-        #           body = "Body of the email",
-        #           attach.files = c("/home/may1y17/v0.3.2.zip"),
-        #           smtp = list(host.name = "smtp.soton.ac.uk", port = 25),
-        #           authenticate = FALSE,
-        #           send = TRUE)
+        # first zip them
+
+        files_to_zip <- list.files(path = paste0("/srv/sdft/jobs/", job_id, "/output/", job_id), full.names=TRUE)
+        zipfile <- paste0("/srv/sdft/jobs/", job_id, "/output/", job_id, "/outputs.zip")
+
+        # Zip the files
+        zip::zipr(zipfile, files_to_zip)
+
+        mailR::send.mail(from = "m.a.young@soton.ac.uk",
+                   to = c(job_email),
+                   #cc = c("CC Recipient <cc.recipient@gmail.com>"),
+                   #bcc = c("BCC Recipient <bcc.recipient@gmail.com>"),
+                   subject = paste0("SDFT Output for Job: ", job_id),
+                   body = "/srv/sdft/job-email.html",
+                   html = TRUE,
+                   inline = TRUE,
+                   attach.files = c(zipfile),
+                   smtp = list(host.name = "smtp.soton.ac.uk", port = 25),
+                   authenticate = FALSE,
+                   send = TRUE)
 
       }
     },
@@ -179,12 +195,14 @@ queue_processor <- function() {
 
   }
 
-}
+#}
 
 
-stdout_1 <- paste0("C:/Temp/sdft/jobs/queue_log_", Sys.Date())
+stdout_1 <- paste0("/srv/sdft/jobs/queue_log_", Sys.Date())
 rp <-
   callr::r_bg(queue_processor, stdout = stdout_1, stderr = stdout_1)
+
+Sys.sleep(1)
 
 # paste(readLines(con = stdout_1), collapse = "\n")
 
@@ -192,3 +210,5 @@ rp <-
 
 # check that this can run in background on Ubuntu server via RScript
 # on ubuntu run this as a service daemon
+
+# Rscript --no-save --no-restore --verbose myRfile.R > outputFile.Rout 2>&1
