@@ -923,7 +923,9 @@ sdft_submit <-
       cost = "time"
     )
 
-    if (testing) {
+    # The full model uses a 60 minute service area, in testing mode this is reduced to 2 minutes
+    # to speed up processing
+    if (isTRUE(testing)) {
       sdr_create_service_areas(
         con,
         out_path,
@@ -944,6 +946,8 @@ sdft_submit <-
       )
       sdr_dbExecute(con, query)
 
+      # a smaller service area for existing stations is also used for abstraction analysis
+      # when in testing mode - implemented by switching the 60min service area with a 5 minute one.
       query <- paste0("
                   update data.stations set service_area_60mins =
                   service_area_5mins

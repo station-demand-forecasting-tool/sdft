@@ -50,7 +50,7 @@ sdr_create_service_areas <-
       } else if (cost == "time") {
         column_name <- paste0("service_area_", i, "mins")
         # for time set the buffer to 105000. The fastest road speed
-        # in roadlinks is 65 mph (105 kmph) so thereotical maximum distance
+        # in roadlinks is 65 mph (105 kmph) so theoretical maximum distance
         # that can be acheived in one hour is 105 km
         buffer <- 105000
       } else {
