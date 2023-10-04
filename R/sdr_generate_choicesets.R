@@ -119,6 +119,11 @@ sdr_generate_choicesets <-
     )
     postcodes <- sdr_dbGetQuery(con, query)
 
+    if (nrow(postcodes) < 1 ) {
+      futile.logger::flog.fatal("There are no postcodes within the service area")
+      stop("no postcodes in service area")
+    }
+
     # Need to create virtual nodes for proposed station(s).
     # Create view of nodes table union with the proposed station(s)
     # including all existing stations but only the postcode nodes
