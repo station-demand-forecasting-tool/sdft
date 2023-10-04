@@ -1,7 +1,6 @@
 #!/usr/bin/Rscript
 #queue_processor <- function() {
   library(DBI)
-  #library(keyring)
   library(sdft)
   library(mailR)
   library(zip)
@@ -20,6 +19,8 @@
 
   while (TRUE) {
     tryCatch({
+      # sleep determines how often job_queue table is queried for waiting jobs
+      # if no job is running
       Sys.sleep(60)
       rs <- dbSendQuery(
         con,
@@ -179,6 +180,15 @@
                    authenticate = FALSE,
                    send = TRUE)
 
+        # tidy up
+        # drop schema from database
+
+        dbExecute(con,
+                  paste0("drop schema ", job_id, " cascade")
+        )
+
+        writeLines(paste0("Job ", job_id, " completed."))
+
       }
     },
     error = function(e) {
@@ -191,6 +201,26 @@
                     where job_id  = $1
                       ",
                 params = list(job_id))
+
+      files_to_zip <- list.files(path = paste0("/srv/sdft/jobs/", job_id, "/output/", job_id), full.names=TRUE)
+      zipfile <- paste0("/srv/sdft/jobs/", job_id, "/output/", job_id, "/outputs.zip")
+
+      # Zip the files
+      zip::zipr(zipfile, files_to_zip)
+
+      mailR::send.mail(from = "m.a.young@soton.ac.uk",
+                       to = c(job_email),
+                       #cc = c("CC Recipient <cc.recipient@gmail.com>"),
+                       #bcc = c("BCC Recipient <bcc.recipient@gmail.com>"),
+                       subject = paste0("SDFT Job Failed: ", job_id),
+                       body = "/srv/sdft/job-failed-email.html",
+                       html = TRUE,
+                       inline = TRUE,
+                       attach.files = c(zipfile),
+                       smtp = list(host.name = "smtp.soton.ac.uk", port = 25),
+                       authenticate = FALSE,
+                       send = TRUE)
+
     })
 
   }
@@ -207,8 +237,3 @@ Sys.sleep(1)
 # paste(readLines(con = stdout_1), collapse = "\n")
 
 # rp$kill()
-
-# check that this can run in background on Ubuntu server via RScript
-# on ubuntu run this as a service daemon
-
-# Rscript --no-save --no-restore --verbose myRfile.R > outputFile.Rout 2>&1
