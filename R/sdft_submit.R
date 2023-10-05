@@ -187,7 +187,7 @@ sdft_submit <-
                        user = dbuser,
                        password = Sys.getenv('SDFT_PG_PASSWORD')
                      ))
-    if (class(checkdb) == "try-error") {
+    if ("try-error" %in% class(checkdb)) {
       stop("Database connection has not been established")
     }
 
@@ -232,7 +232,7 @@ sdft_submit <-
         )
       NULL
     }))
-    if (class(checkcl) == "try-error") {
+    if ("try-error" %in% class(checkcl)) {
       stop("clusterEvalQ failed")
     }
 
