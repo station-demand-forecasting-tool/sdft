@@ -25,7 +25,7 @@
       rs <- dbSendQuery(
         con,
         "
-                    SELECT job_id, email, method, testing, loglevel, cores
+                    SELECT job_id, email, method, mode, loglevel, cores
                     FROM jobs.job_queue
                     WHERE status = 0
                     ORDER BY timestamp asc
@@ -149,13 +149,15 @@
           dirpath = job_directory
         )
 
+        # update job status
         dbExecute(con,
                   "
                     update jobs.job_queue
-                    set status = 2
-                    where job_id  = $1
+                    set status = 2,
+                    end_timestamp = $1
+                    where job_id  = $2
                       ",
-                  params = list(job_id))
+                  params = list(format(Sys.time(), "%Y-%m-%d %X"), job_id))
 
         # send results by email
 
@@ -197,10 +199,11 @@
       dbExecute(con,
                 "
                     update jobs.job_queue
-                    set status = 9
-                    where job_id  = $1
+                    set status = 9,
+                    end_timestamp = $1
+                    where job_id  = $2
                       ",
-                params = list(job_id))
+                params = list(format(Sys.time(), "%Y-%m-%d %X"), job_id))
 
       files_to_zip <- list.files(path = paste0("/srv/sdft/jobs/", job_id, "/output/", job_id), full.names=TRUE)
       zipfile <- paste0("/srv/sdft/jobs/", job_id, "/output/", job_id, "/outputs.zip")
