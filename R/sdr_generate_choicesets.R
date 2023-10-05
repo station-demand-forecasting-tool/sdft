@@ -121,7 +121,7 @@ sdr_generate_choicesets <-
 
     if (nrow(postcodes) < 1 ) {
       futile.logger::flog.fatal("There are no postcodes within the service area")
-      stop("no postcodes in service area")
+      stop("There are no postcodes within the service area")
     }
 
     # Need to create virtual nodes for proposed station(s).
