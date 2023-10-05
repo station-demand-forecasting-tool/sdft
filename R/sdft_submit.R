@@ -54,7 +54,7 @@ sdft_submit <-
         colClasses = c(
           "job_id" = "character",
           "method" = "character",
-          "testing" = "logical",
+          "mode" = "character",
           "loglevel" = "character",
           "cores" = "integer"
         ),
@@ -85,9 +85,9 @@ sdft_submit <-
                   null.ok = FALSE,
                   add = config.coll)
 
-    # check testing is TRUE or FALSE
+    # check mode is testing, full, or student
 
-    assert_logical(config$testing, null.ok = FALSE, add = config.coll)
+    assert_choice(config$mode, c("testing", "student", "full"), null.ok = FALSE, add = config.coll)
 
     # check for valid logging threshold
 
@@ -322,9 +322,9 @@ sdft_submit <-
 
     # Starting job-----------------------------------------------------------------
 
-    # Set testing switch - If TRUE, this produces fake 60-minute proposed station
+    # Set mode switch - If testing, this produces fake 60-minute proposed station
     # service areas which are actually only 5-minute service areas.
-    testing <- config$testing
+    mode <- config$mode
 
     # setting some variables
     have_freqgroups <- ifelse(nrow(freqgroups) > 0, TRUE, FALSE)
@@ -344,7 +344,7 @@ sdft_submit <-
       append = TRUE
     )
 
-    flog.info(paste0("Testing mode: ", ifelse(isTRUE(testing), "ON", "OFF")))
+    flog.info(paste0("Mode: ", mode))
 
     # Check if the postcode_polygons table is available
 
@@ -925,7 +925,8 @@ sdft_submit <-
 
     # The full model uses a 60 minute service area, in testing mode this is reduced to 2 minutes
     # to speed up processing
-    if (isTRUE(testing)) {
+    # For student mode this is reduced to 30 minutes (don't need to worry about abstraction analysis in this mode)
+    if (mode == "testing") {
       sdr_create_service_areas(
         con,
         out_path,
@@ -948,10 +949,33 @@ sdft_submit <-
 
       # a smaller service area for existing stations is also used for abstraction analysis
       # when in testing mode - implemented by switching the 60min service area with a 5 minute one.
+      # this would be better handled by allowing variation in service area used by the model based
+      # on model mode.
+      # TODO revisit when time allows
       query <- paste0("
                   update data.stations set service_area_60mins =
                   service_area_5mins
                   ")
+      sdr_dbExecute(con, query)
+    } else if (mode == "student") {
+      sdr_create_service_areas(
+        con,
+        out_path,
+        schema = schema,
+        df = unique_stations,
+        identifier = "name",
+        table = "station_sas",
+        sa = c(30),
+        cost = "time"
+      )
+
+      query <- paste0(
+        "
+    alter table ",
+        schema,
+        ".station_sas rename column service_area_30mins to service_area_60mins
+    "
+      )
       sdr_dbExecute(con, query)
     } else {
       query <- paste0("
