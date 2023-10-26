@@ -1,3 +1,13 @@
+# sdft 0.3.2.9000
+
+# Changes
+
+- version to support hosting on VM
+- now have 'mode' column in the config file. This can be: "testing", "student", or "full". "student" mode uses a 30 minute service area for the propose station.
+- previously 2 cores were subtracted from the number of cores in the config file. This was intended to preseve 2 cores for
+the operating system. In the VM version this is set within the sdftgui.
+
+
 # sdft 0.3.2
 
 ## Bug Fixes
