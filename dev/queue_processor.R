@@ -20,21 +20,36 @@
   while (TRUE) {
     tryCatch({
       # sleep determines how often job_queue table is queried for waiting jobs
-      # if no job is running
+      # by this worker if no job is running
       Sys.sleep(60)
-      rs <- dbSendQuery(
+
+      # we use FOR UPDATE to lock row for update
+      # and SKIP LOCKED - any other worker won't select the same queued job
+      # this enables use of multiple queue_processors (worker)
+      # has to be within a transaction (dbBegin | dbCommit)
+      # see: https://rpostgres.r-dbi.org/reference/postgres-transactions
+      # and: https://spin.atomicobject.com/2021/02/04/redis-postgresql/
+      dbBegin(con)
+      config <- dbGetQuery(
         con,
         "
-                    SELECT job_id, email, method, mode, loglevel, cores
+										WITH job as (
+                    SELECT job_id as id
                     FROM jobs.job_queue
                     WHERE status = 0
                     ORDER BY timestamp asc
                     LIMIT 1
+                    FOR UPDATE SKIP LOCKED
+                    )
+                    UPDATE jobs.job_queue
+                    SET status = 1
+                    FROM job
+                    WHERE job_id = job.id
+                    RETURNING
+                     job_id, email, method, mode, loglevel, cores;
                       "
       )
-
-      config <- dbFetch(rs)
-      dbClearResult(rs)
+      dbCommit(con)
 
       job_id <- config[1, 1]
       job_email <- config[1, 2]
@@ -42,15 +57,6 @@
       config$email <- NULL
 
       if (!is.na(job_id)) {
-        # update status to running (1)
-
-        dbExecute(con,
-                  "
-                    update jobs.job_queue
-                    set status = 1
-                    where job_id  = $1
-                      ",
-                  params = list(job_id))
 
         job_directory <- paste0("/srv/sdft/jobs/", job_id)
 
