@@ -345,6 +345,7 @@ sdft_submit <-
     )
 
     flog.info(paste0("Mode: ", mode))
+    flog.info(paste0("vCPUs: ", config$cores))
 
     # Check if the postcode_polygons table is available
 
