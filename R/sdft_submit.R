@@ -197,8 +197,8 @@ sdft_submit <-
 
     passwd <- Sys.getenv('SDFT_PG_PASSWORD')
 
-    # Number of clusters from config file (reserve 2 for OS)
-    cl <- makeCluster(config$cores - 2)
+    # Number of clusters from config file
+    cl <- makeCluster(config$cores)
     registerDoParallel(cl)
     # Pass variables in this function's (sdr_main) environment to each worker in the cluster
     clusterExport(
